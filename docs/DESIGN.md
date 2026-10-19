@@ -119,18 +119,26 @@ Publishing is refused unless every step passed for the current `sourceHash`.
 ## 5. Data model (MongoDB)
 
 ```js
-problems    { _id, slug, code, title, statementHtml, samples: [{input, output}],
-              timeLimitMs, memoryLimitMb, tags, difficulty, checker,
-              published, buildId, createdAt, updatedAt }
+problems    { _id: slug, slug, code, order, title, titleWords, statementHtml,
+              samples: [{input, output}], timeLimitMs, memoryLimitMb, tags,
+              difficulty, checker, published, buildId,
+              stats: { submissions, accepted },   // kept up to date by the judge
+              createdAt, updatedAt }
 builds      { _id, slug, commit, sourceHash, status: requested|running|passed|failed,
               steps: [{name, ok, ms, log}], package: {sha256, r2Key, formatVersion, testCount},
               localMaxMs, judgeMaxMs, logUrl, createdAt }
-submissions { _id, problemId, problemSlug, language /* id, e.g. "cpp17" */, code, codeBytes,
+submissions { _id, id, problemSlug, problemCode, problemTitle, language /* id, e.g. "cpp17" */, code, codeBytes,
               status: queued|compiling|running|done, verdict: AC|WA|TLE|MLE|RE|CE|IE|null,
               failedTest, currentTest, timeMs, memoryKb, compileOutput,
               tests: [{n, verdict, timeMs, memoryKb, checkerMsg}],
               buildId, kind: user|calibration, lease: {workerId, until},
               attempts, createdAt, finishedAt }
+// Indexes and why: web/src/db/database.js (INDEXES); `npm run db:explain`.
+// The problemset is paged with skip + limit over the {published, order,
+// difficulty} / {published, tags, order, difficulty} indexes (no in-memory
+// sort; skipped entries are index keys only). "Solved" comes from
+// problems.stats, so listing needs no join with submissions; submissions copy
+// their problem's code and title for the same reason.
 sessions      { _id, createdAt, expiresAt }   TTL index
 loginAttempts { key, at }                     TTL index
 judgeStatus   { workerId, lastHeartbeat, version }
@@ -140,7 +148,8 @@ judgeStatus   { workerId, lastHeartbeat, version }
 
 ```
 POST /api/auth/login | POST /api/auth/logout | GET /api/auth/me
-GET  /api/problems?q=&tags=&min=&max=&page=
+GET  /api/problems?q=&tag=&min=&max=&page=&perPage=   one page + total + tags
+GET  /api/problems/options | /api/problems/progress
 GET  /api/problems/:slug
 POST /api/submissions            {problemSlug, language, code}
 GET  /api/submissions?problem=&page=

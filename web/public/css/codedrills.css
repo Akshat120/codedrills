@@ -515,6 +515,23 @@ html.auth-pending body { visibility: hidden; }
 
 .problem-name { display: flex; flex-direction: column; gap: 2px; }
 .problem-tags { text-align: right; font-size: 11px; }
+
+/* Problemset: fixed column widths, so they don't change from page to page
+   with the length of the titles and tags on it. Long names wrap instead. */
+.problemset-table { table-layout: fixed; }
+.problemset-table .w-id { width: 70px; }
+.problemset-table .w-difficulty { width: 100px; }
+.problemset-table .w-solved { width: 80px; }
+.problemset-table td { overflow-wrap: anywhere; }
+.label-short { display: none; }
+@media (max-width: 600px) {
+  .label-long { display: none; }
+  .label-short { display: inline; }
+  .problemset-table .w-id { width: 48px; }
+  .problemset-table .w-difficulty { width: 72px; }
+  .problemset-table .w-solved { width: 58px; }
+  .problemset-table td, .problemset-table th { padding-left: 6px; padding-right: 6px; }
+}
 .content-column .problem-tags a { color: var(--muted); text-decoration: none; }
 .content-column .problem-tags a:hover { text-decoration: underline; }
 
@@ -691,4 +708,65 @@ html.auth-pending body { visibility: hidden; }
 
 @media (max-width: 380px) {
   .cf-theme-toggle-btn .theme-text { display: none; }
+}
+
+/* ==========================================================================
+   Pagination (CodeReflections' cf-pagination)
+   ========================================================================== */
+.cf-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 4px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.cf-page {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--box-bg);
+  text-align: center;
+  line-height: 18px;
+}
+.content-column .cf-pagination a.cf-page { color: var(--link); text-decoration: none; }
+.content-column .cf-pagination a.cf-page:hover { background: var(--btn-bg-hover); border-color: var(--btn-border-hover); }
+.cf-page.is-active { background: var(--border-soft); border-color: var(--muted); font-weight: bold; color: var(--text); }
+.cf-page.is-disabled { color: var(--border); border-color: var(--border-soft); }
+.cf-page-gap { padding: 0 2px; color: var(--muted); }
+.pagination-count { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 8px 10px; }
+
+/* Fetching state (problemset): the current rows fade and the caption says
+   so, instead of the table being redrawn from scratch */
+.fetching {
+  display: none;
+  float: right;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--muted);
+}
+.fetching .spinner { margin-right: 6px; }
+.is-loading .fetching { display: inline-flex; align-items: center; }
+#problemset-box .table-wrap, #ps-pager { transition: opacity 0.15s ease; }
+.is-loading .table-wrap, .is-loading #ps-pager { opacity: 0.45; pointer-events: none; }
+.loading-row td { padding: 24px 10px; color: var(--muted); }
+.loading-row .spinner { margin-right: 8px; vertical-align: -2px; }
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: cd-spin 0.7s linear infinite;
+}
+@keyframes cd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+  #problemset-box .table-wrap, #ps-pager { transition: none; }
 }

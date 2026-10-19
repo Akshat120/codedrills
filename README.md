@@ -9,25 +9,30 @@ judge choice, hosting plan and security notes.
 
 ## Status
 
-**Dummy stage.** The web app (`web/`) runs with hard-coded problems and
-submissions. There is no database or judge yet, so submitting is validated and
-then refused with a message.
+**Sample-data stage.** The web app (`web/`) reads problems and submissions
+from MongoDB, filled with sample data by `npm run seed`. There is no judge yet,
+so submitting is validated and then refused with a message.
 
 | Part | Where | State |
 |---|---|---|
-| Web app (Express 5 on Cloudflare Workers + static SPA) | `web/` | Dummy data |
+| Web app (Express 5 on Cloudflare Workers + static SPA) | `web/` | Sample data in MongoDB |
 | Judge (isolate worker on a VPS) | `judge/` | Not started |
 | Problem pipeline (testlib, GitHub Actions) | `pipeline/` | Not started |
 
 ## Run the web app locally
 
-Needs Node 22 or newer.
+Needs Node 22 or newer and Docker (for the local MongoDB on port 27018).
 
 ```bash
 cd web
 npm install
+npm run db:up
+npm run seed
 npm run dev
 ```
+
+`npm run db:explain` prints the query plans of the list queries (which index
+each uses, and how many keys and documents it reads).
 
 Then open http://localhost:3000. Without `APP_PASSWORD_HASH` there is no login
 and the server only listens on 127.0.0.1.
@@ -43,6 +48,7 @@ To run it inside the Workers runtime instead: `npm run cf:dev`.
 ```bash
 cd web
 npx wrangler secret put APP_PASSWORD_HASH
+npx wrangler secret put MONGODB_URI
 npm run cf:deploy
 ```
 
