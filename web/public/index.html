@@ -3,45 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#3b5998">
   <title>CodeDrills</title>
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
-  <script src="/js/theme.js"></script>
+  <script src="/js/boot.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cuprum:wght@400;700&family=Montserrat:wght@700&family=PT+Sans+Narrow:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="/css/codedrills.css">
 </head>
 <body>
-  <div class="cd-page">
-    <header class="cd-header">
-      <a class="cd-brand" href="/" data-link>
-        <img src="/logo.svg" alt="" width="40" height="40">
-        <span class="cd-brand-name">Code<span>Drills</span></span>
+  <header class="site-header">
+    <div class="header-top">
+      <a class="brand" href="/" data-link>
+        <img class="brand-logo" src="/logo.svg" alt="" width="40" height="40">
+        <div class="brand-titles">
+          <span class="brand-text" aria-label="CodeDrills"><span class="brand-code" aria-hidden="true"><span class="brand-cap">C</span>ode</span><span class="brand-drills" aria-hidden="true"><span class="brand-cap">D</span>rills</span></span>
+          <span class="brand-sub">Practice Judge <b>for C++</b></span>
+        </div>
       </a>
-      <div class="cd-user">
-        <a id="cd-handle" class="rated-user" href="/status" data-link></a>
-        <span class="cd-sep">|</span>
-        <a id="cd-logout" href="#">Logout</a>
-        <span class="cd-sep">|</span>
-        <button id="cd-theme" class="cd-linkbutton" type="button">Dark mode</button>
+      <div class="header-right">
+        <span class="judge-signal" id="judge-signal" title="Judge status">
+          <svg viewBox="0 0 24 22" width="26" height="24" aria-hidden="true">
+            <path class="signal-arc" d="M3.5 10.5 a12 12 0 0 1 17 0"/>
+            <path class="signal-arc" d="M6.3 13.3 a8 8 0 0 1 11.4 0"/>
+            <path class="signal-arc" d="M9.2 16.2 a4 4 0 0 1 5.6 0"/>
+            <circle class="signal-dot" cx="12" cy="19.2" r="1.7"/>
+          </svg>
+          <span class="judge-signal-text" id="judge-signal-text">judge</span>
+        </span>
+        <button type="button" id="btn-theme-toggle" class="cf-theme-toggle-btn" title="Switch to dark theme" aria-label="Switch to dark theme">
+          <span class="theme-icon">🌙</span>
+          <span class="theme-text">Dark Theme</span>
+        </button>
+        <a href="#" id="btn-logout" class="header-logout hidden">Log out</a>
       </div>
-    </header>
-
-    <nav class="cd-menu" aria-label="Main">
-      <a href="/" data-link data-menu="home">Home</a>
-      <a href="/problemset" data-link data-menu="problemset">Problemset</a>
-      <a href="/submit" data-link data-menu="submit">Submit</a>
-      <a href="/status" data-link data-menu="status">Status</a>
-      <a href="/admin" data-link data-menu="admin">Admin</a>
-    </nav>
-
-    <div class="cd-body">
-      <main id="cd-main" class="cd-main"></main>
-      <aside id="cd-sidebar" class="cd-sidebar"></aside>
     </div>
+    <div class="nav-container">
+      <nav class="main-nav" aria-label="CodeDrills Navigation">
+        <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-links">
+          <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="nav-toggle-label" id="nav-toggle-label">Menu</span>
+        </button>
+        <div class="nav-links" id="nav-links">
+          <a class="nav-link" href="/" data-link data-menu="home">HOME</a>
+          <a class="nav-link" href="/problemset" data-link data-menu="problemset">PROBLEMSET</a>
+          <a class="nav-link" href="/submit" data-link data-menu="submit">SUBMIT</a>
+          <a class="nav-link" href="/status" data-link data-menu="status">STATUS</a>
+          <a class="nav-link" href="/admin" data-link data-menu="admin">ADMIN</a>
+        </div>
+        <form class="nav-search" id="nav-search" role="search">
+          <input type="text" id="nav-search-input" placeholder="Problem (e.g. 1A)" aria-label="Go to problem">
+          <button type="submit" class="nav-search-btn" aria-label="Go">🔍</button>
+        </form>
+      </nav>
+    </div>
+  </header>
 
-    <footer class="cd-footer">
-      CodeDrills — a private practice judge. Problems are original.
-    </footer>
+  <div class="page-wrap">
+    <main class="content-column" id="cd-main"></main>
+    <aside class="sidebar" id="cd-sidebar"></aside>
   </div>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <img class="site-footer-logo" src="/logo.svg" alt="" width="20" height="20">
+      <span><b>CodeDrills</b> · Private practice judge with an original problem bank</span>
+    </div>
+    <div class="site-footer-note">
+      © <span class="site-footer-year">2026</span> <a href="https://akshatdhiman.in" target="_blank" rel="noopener">Akshat Dhiman</a> · All problems are original; this project is not affiliated with Codeforces.
+    </div>
+  </footer>
 
   <script src="/vendor/katex/katex.min.js"></script>
   <script src="/vendor/katex/auto-render.min.js"></script>

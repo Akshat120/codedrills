@@ -1,5 +1,6 @@
 // CodeDrills single-page app: a small history router that renders each page
-// into #cd-main and #cd-sidebar.
+// into the content column and the sidebar, in CodeReflections' layout.
+import { initFooter, initTheme } from "./chrome.js";
 
 const main = document.getElementById("cd-main");
 const sidebar = document.getElementById("cd-sidebar");
@@ -33,7 +34,7 @@ async function api(path, options = {}) {
     headers: options.body ? { "Content-Type": "application/json" } : undefined
   });
   if (res.status === 401) {
-    location.href = "/login";
+    location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
     throw new Error("Please log in.");
   }
   const data = await res.json().catch(() => ({}));
@@ -65,117 +66,169 @@ function verdictHtml(s) {
 
 function formatWhen(iso) {
   const d = new Date(iso);
+  const month = d.toLocaleString("en", { month: "short" });
   const pad = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${month}/${pad(d.getDate())}/${d.getFullYear()}<br>${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function box(caption, content, { flush = false, plain = false } = {}) {
-  return `<div class="roundbox">
-    <div class="caption${plain ? " plain" : ""}">${caption}</div>
-    <div class="content${flush ? " flush" : ""}">${content}</div>
-  </div>`;
+function box(caption, body, { flush = false, footer = "" } = {}) {
+  return `<section class="roundbox">
+    <div class="caption">${caption}</div>
+    <div class="roundbox-body${flush ? " flush" : ""}">${body}</div>
+    ${footer ? `<div class="roundbox-footer">${footer}</div>` : ""}
+  </section>`;
 }
 
-function setMenu(key) {
-  document.querySelectorAll(".cd-menu a").forEach(a => a.classList.toggle("current", a.dataset.menu === key));
+function intro(title, text) {
+  return `<div class="page-intro"><h1 class="page-title">${title}</h1>${text ? `<p>${text}</p>` : ""}</div>`;
+}
+
+function setTitle(title) {
+  document.title = title ? `${title} · CodeDrills` : "CodeDrills";
 }
 
 function renderMath(el) {
-  if (window.renderMathInElement) {
-    window.renderMathInElement(el, {
-      delimiters: [
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false }
-      ],
-      throwOnError: false
-    });
-  }
+  window.renderMathInElement?.(el, {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "$", right: "$", display: false }
+    ],
+    throwOnError: false
+  });
 }
 
 function submissionsTable(list, { compact = false } = {}) {
-  if (!list.length) return `<p class="muted" style="padding:10px;margin:0">No submissions yet.</p>`;
-  const rows = list.map(s => compact
-    ? `<tr>
-        <td class="center"><a href="/submission/${esc(s.id)}" data-link>${esc(s.id)}</a></td>
-        <td class="center small">${formatWhen(s.createdAt)}</td>
-        <td class="center">${verdictHtml(s)}</td>
-      </tr>`
-    : `<tr>
-        <td class="center"><a href="/submission/${esc(s.id)}" data-link>${esc(s.id)}</a></td>
-        <td class="center small hide-narrow">${formatWhen(s.createdAt)}</td>
-        <td class="center hide-narrow"><span class="rated-user">akshat</span></td>
-        <td><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
-        <td class="center hide-narrow">${esc(s.language)}</td>
-        <td class="center">${verdictHtml(s)}</td>
-        <td class="center">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
-        <td class="center hide-narrow">${s.status === "done" ? `${esc(s.memoryKb)} KB` : ""}</td>
-      </tr>`).join("");
+  if (!list.length) return `<p class="hint" style="margin:0;padding:8px 10px">No submissions yet.</p>`;
   const head = compact
     ? `<tr><th>#</th><th>When</th><th>Verdict</th></tr>`
     : `<tr><th>#</th><th class="hide-narrow">When</th><th class="hide-narrow">Who</th><th>Problem</th><th class="hide-narrow">Lang</th><th>Verdict</th><th>Time</th><th class="hide-narrow">Memory</th></tr>`;
+  const rows = list.map(s => compact
+    ? `<tr>
+        <td><a href="/submission/${esc(s.id)}" data-link>${esc(s.id)}</a></td>
+        <td class="col-when">${formatWhen(s.createdAt)}</td>
+        <td>${verdictHtml(s)}</td>
+      </tr>`
+    : `<tr>
+        <td class="col-id"><a href="/submission/${esc(s.id)}" data-link>${esc(s.id)}</a></td>
+        <td class="col-when hide-narrow">${formatWhen(s.createdAt)}</td>
+        <td class="hide-narrow"><span class="user-handle">akshat</span></td>
+        <td class="col-left"><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
+        <td class="hide-narrow">${esc(s.language)}</td>
+        <td>${verdictHtml(s)}</td>
+        <td class="col-mono">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
+        <td class="col-mono hide-narrow">${s.status === "done" ? `${esc(s.memoryKb)} KB` : ""}</td>
+      </tr>`).join("");
   return `<div class="table-wrap"><table class="datatable"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
 }
 
-async function judgeBox() {
-  const status = await api("/api/judge/status").catch(() => ({ online: false, message: "Unknown." }));
-  return box("Pay attention", status.online
-    ? `<span class="verdict-accepted">Judge online</span>`
-    : `<span class="verdict-limit">Judge offline.</span> <span class="muted">${esc(status.message)}</span>`);
+// ---------- sidebar widgets ----------
+
+let judgeStatusRequest = null;
+
+async function loadJudgeStatus() {
+  const judgeStatus = await api("/api/judge/status").catch(() => ({ online: false, message: "Status unknown." }));
+  const signal = document.getElementById("judge-signal");
+  signal.classList.toggle("is-online", judgeStatus.online);
+  signal.classList.toggle("is-offline", !judgeStatus.online);
+  document.getElementById("judge-signal-text").textContent = judgeStatus.online ? "judge" : "offline";
+  signal.title = judgeStatus.online ? "Judge online" : `Judge offline. ${judgeStatus.message}`;
+  return judgeStatus;
+}
+
+async function payAttentionBox() {
+  judgeStatusRequest ||= loadJudgeStatus();
+  const status = await judgeStatusRequest;
+  return box("Pay attention", `
+    <div class="contest-subhead">Judge</div>
+    <div class="contest-line">${status.online
+      ? `<span class="verdict-accepted">Online</span>`
+      : `<span class="verdict-limit"><b>Offline</b></span><br><span class="hint">${esc(status.message)}</span>`}</div>`);
+}
+
+async function progressBox() {
+  const [{ problems }, { submissions }] = await Promise.all([api("/api/problems"), api("/api/submissions")]);
+  const solved = problems.filter(p => p.status === "accepted");
+  const attempted = problems.filter(p => p.status === "attempted");
+  const avg = solved.length ? Math.round(solved.reduce((sum, p) => sum + p.difficulty, 0) / solved.length) : null;
+  return box("Your Progress", `
+    <div class="progress-stats">
+      <div class="stat-row"><span>Problems solved</span><b>${solved.length} / ${problems.length}</b></div>
+      <div class="stat-row"><span>Attempted, not solved</span><b>${attempted.length}</b></div>
+      <div class="stat-row"><span>Submissions</span><b>${submissions.length}</b></div>
+      <div class="stat-row"><span>Average difficulty</span><b class="${avg ? ratingClass(avg) : ""}">${avg ?? "—"}</b></div>
+    </div>
+    <p class="sidebar-more"><a href="/status" data-link>All submissions →</a></p>`);
 }
 
 // ---------- pages ----------
 
 async function homePage() {
-  setMenu("home");
-  main.innerHTML = box("CodeDrills", `
-    <h2 class="topic-title">Welcome to CodeDrills</h2>
-    <div class="topic-info">By <span class="rated-user">akshat</span></div>
-    <div class="topic-body">
-      <p>A private practice judge with an original problem bank. Pick a problem from the
-      <a href="/problemset" data-link>problemset</a>, submit GNU C++17, and get a verdict per test.</p>
-      <div class="notice">This is the dummy build: problems and submissions are hard-coded, and the
-      judge is not connected yet.</div>
-    </div>`, { plain: true });
-  sidebar.innerHTML = await judgeBox();
+  setTitle("");
+  main.innerHTML = `
+    <article class="post-card">
+      <h2 class="post-title">Welcome to CodeDrills</h2>
+      <div class="post-meta">By <span class="user-handle">akshat</span></div>
+      <div class="post-content-wrap">
+        <p>A private practice judge with an original problem bank. Pick a problem from the
+        <a href="/problemset" data-link>problemset</a>, submit GNU C++17, and get a verdict on every test.</p>
+        <p>Every problem's tests are checked before publishing: inputs are validated, the reference
+        solution is stress-tested against a brute force, and its running time is measured on the judge.</p>
+      </div>
+      <div class="message">Dummy build: problems and submissions are hard-coded, and the judge isn't connected yet.</div>
+    </article>`;
+  sidebar.innerHTML = (await payAttentionBox()) + (await progressBox());
 }
 
 async function problemsetPage() {
-  setMenu("problemset");
+  setTitle("Problemset");
   const params = new URLSearchParams(location.search);
   const data = await api(`/api/problems?${params}`);
 
   const rows = data.problems.map(p => `
     <tr class="${p.status === "accepted" ? "accepted-problem" : p.status === "attempted" ? "rejected-problem" : ""}">
-      <td class="id-col"><a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.code)}</a></td>
-      <td>
+      <td class="col-id"><a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.code)}</a></td>
+      <td class="col-left">
         <div class="problem-name">
           <a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.title)}</a>
           <div class="problem-tags">${p.tags.map(t => `<a href="/problemset?tag=${encodeURIComponent(t)}" data-link>${esc(t)}</a>`).join(", ")}</div>
         </div>
       </td>
-      <td class="center"><span class="${ratingClass(p.difficulty)}">${esc(p.difficulty)}</span></td>
-      <td class="center">${p.acceptedCount ? `<span title="My accepted submissions">✓ x${esc(p.acceptedCount)}</span>` : ""}</td>
+      <td><span class="${ratingClass(p.difficulty)}">${esc(p.difficulty)}</span></td>
+      <td>${p.acceptedCount ? `<span title="My accepted submissions">✓ x${esc(p.acceptedCount)}</span>` : ""}</td>
     </tr>`).join("");
 
-  main.innerHTML = box("Problems", `
-    <div class="table-wrap"><table class="datatable">
-      <thead><tr><th>#</th><th style="text-align:left">Name</th><th>Difficulty</th><th>Solved</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="center muted">No problems match.</td></tr>`}</tbody>
-    </table></div>`, { flush: true, plain: true });
+  main.innerHTML =
+    intro("Problemset", "Original problems. Green rows are solved, red rows were attempted.") +
+    box(`Problems (${data.problems.length})`, `
+      <div class="table-wrap"><table class="datatable">
+        <thead><tr><th>#</th><th class="col-left">Name</th><th>Difficulty</th><th>Solved</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="4" class="muted">No problems match.</td></tr>`}</tbody>
+      </table></div>`, { flush: true });
 
   const tagOptions = data.tags.map(t => `<option value="${esc(t)}"${params.get("tag") === t ? " selected" : ""}>${esc(t)}</option>`).join("");
   sidebar.innerHTML = box("Filter Problems", `
-    <form class="filter-form" id="filter-form">
-      <input type="text" name="q" placeholder="Name or # (e.g. 1A)" value="${esc(params.get("q") || "")}">
-      <select name="tag"><option value="">All tags</option>${tagOptions}</select>
-      <div class="row">Difficulty:
-        <input type="number" name="min" min="800" max="3500" step="100" placeholder="800" value="${esc(params.get("min") || "")}">
-        —
-        <input type="number" name="max" min="800" max="3500" step="100" placeholder="3500" value="${esc(params.get("max") || "")}">
+    <form class="cf-filter-form" id="filter-form">
+      <div>
+        <label class="cf-filter-label" for="filter-q">Search problem:</label>
+        <input type="text" id="filter-q" name="q" class="cf-input" placeholder="Name or # (e.g. 1A)" value="${esc(params.get("q") || "")}" autocomplete="off">
       </div>
-      <div class="row"><button class="cd-button" type="submit">Apply</button>
-        <a href="/problemset" data-link>Reset</a></div>
-    </form>`);
+      <div>
+        <label class="cf-filter-label" for="filter-tag">Tag:</label>
+        <select id="filter-tag" name="tag" class="cf-select"><option value="">All tags (${data.tags.length})</option>${tagOptions}</select>
+      </div>
+      <div>
+        <label class="cf-filter-label">Difficulty:</label>
+        <div class="cf-difficulty-inputs">
+          <input type="number" name="min" class="cf-input" min="800" max="3500" step="100" placeholder="800" value="${esc(params.get("min") || "")}" aria-label="Minimum difficulty">
+          <span>—</span>
+          <input type="number" name="max" class="cf-input" min="800" max="3500" step="100" placeholder="3500" value="${esc(params.get("max") || "")}" aria-label="Maximum difficulty">
+        </div>
+      </div>
+      <div class="cf-filter-actions">
+        <a class="btn" href="/problemset" data-link>Reset</a>
+        <button class="btn" type="submit">Apply</button>
+      </div>
+    </form>`) + (await progressBox());
 
   document.getElementById("filter-form").addEventListener("submit", e => {
     e.preventDefault();
@@ -186,21 +239,21 @@ async function problemsetPage() {
 }
 
 async function problemPage(slug) {
-  setMenu("problemset");
   const [p, subs] = await Promise.all([
     api(`/api/problems/${encodeURIComponent(slug)}`),
     api(`/api/submissions?problem=${encodeURIComponent(slug)}`)
   ]);
+  setTitle(`${p.code} ${p.title}`);
   const letter = p.code.replace(/^\d+/, "");
 
   const samples = p.samples.map((s, i) => `
     <div class="sample-tests">
       <div class="sample-box">
-        <div class="sample-title">Input <button class="copy-button" data-copy="in${i}">Copy</button></div>
+        <div class="sample-title">Input <button type="button" class="btn btn-sm" data-copy="in${i}">Copy</button></div>
         <pre id="in${i}">${esc(s.input)}</pre>
       </div>
       <div class="sample-box">
-        <div class="sample-title">Output <button class="copy-button" data-copy="out${i}">Copy</button></div>
+        <div class="sample-title">Output <button type="button" class="btn btn-sm" data-copy="out${i}">Copy</button></div>
         <pre id="out${i}">${esc(s.output)}</pre>
       </div>
     </div>`).join("");
@@ -214,9 +267,9 @@ async function problemPage(slug) {
        <div class="section-title">Output</div>${st.output}
        <div class="section-title">Examples</div>${samples}
        ${st.note ? `<div class="section-title">Note</div>${st.note}` : ""}`
-    : `<p class="muted center">The statement for this problem has not been written yet.</p>`;
+    : `<p class="hint center">The statement for this problem hasn't been written yet.</p>`;
 
-  main.innerHTML = `<div class="roundbox"><div class="content">
+  main.innerHTML = `<section class="roundbox">
     <div class="problem-statement">
       <div class="header">
         <div class="title">${esc(letter)}. ${esc(p.title)}</div>
@@ -227,13 +280,12 @@ async function problemPage(slug) {
       </div>
       ${body}
     </div>
-  </div></div>`;
+  </section>`;
   renderMath(main);
 
   main.querySelectorAll("[data-copy]").forEach(btn => btn.addEventListener("click", async () => {
-    const text = document.getElementById(btn.dataset.copy).textContent;
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent);
       btn.textContent = "Copied";
       setTimeout(() => (btn.textContent = "Copy"), 1200);
     } catch (_) {}
@@ -241,55 +293,66 @@ async function problemPage(slug) {
 
   sidebar.innerHTML =
     box("Submit?", `
-      <form id="quick-submit" class="filter-form">
-        <div class="row">Language: <select name="language"><option value="cpp17">GNU C++17</option></select></div>
-        <div class="row">Choose file: <input type="file" name="file" accept=".cpp,.cc,.cxx,.h"></div>
-        <div class="row"><button class="cd-button" type="submit">Submit</button></div>
-        <div id="quick-msg" class="small"></div>
+      <form id="quick-submit" class="cf-filter-form">
+        <div>
+          <label class="cf-filter-label" for="quick-lang">Language:</label>
+          <select id="quick-lang" name="language" class="cf-select"><option value="cpp17">GNU C++17</option></select>
+        </div>
+        <div>
+          <label class="cf-filter-label" for="quick-file">Choose file:</label>
+          <input id="quick-file" type="file" name="file" accept=".cpp,.cc,.cxx,.h">
+        </div>
+        <div class="cf-filter-actions"><button class="btn" type="submit">Submit</button></div>
+        <div id="quick-msg"></div>
       </form>`) +
     box("Last submissions", submissionsTable(subs.submissions.slice(0, 5), { compact: true }), { flush: true }) +
-    box("Problem tags", `${p.tags.map(t => `<span class="tag-box">${esc(t)}</span>`).join("")}
-      <span class="tag-box ${ratingClass(p.difficulty)}" title="Difficulty">*${esc(p.difficulty)}</span>`);
+    box("Problem tags", `${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}<span class="tag ${ratingClass(p.difficulty)}" title="Difficulty">*${esc(p.difficulty)}</span>`);
 
   document.getElementById("quick-submit").addEventListener("submit", async e => {
     e.preventDefault();
     const msg = document.getElementById("quick-msg");
     const file = e.target.file.files[0];
-    if (!file) return void (msg.innerHTML = `<span class="error-text">Choose a file first.</span>`);
+    if (!file) return showMessage(msg, "Choose a file first.", true);
     await submitCode({ problemSlug: slug, language: "cpp17", code: await file.text() }, msg);
   });
 }
 
+function showMessage(el, text, isError) {
+  el.innerHTML = `<div class="message${isError ? " error" : ""}"></div>`;
+  el.firstChild.textContent = text;
+}
+
 async function submitCode(payload, msgEl) {
-  msgEl.textContent = "Submitting…";
+  showMessage(msgEl, "Submitting…", false);
   try {
     const { id } = await api("/api/submissions", { method: "POST", body: JSON.stringify(payload) });
     navigate(`/submission/${id}`);
   } catch (err) {
-    msgEl.innerHTML = `<span class="error-text">${esc(err.message)}</span>`;
+    showMessage(msgEl, err.message, true);
   }
 }
 
 async function submitPage() {
-  setMenu("submit");
+  setTitle("Submit");
   const { problems } = await api("/api/problems");
   const preselect = new URLSearchParams(location.search).get("problem");
-  main.innerHTML = box("Submit solution", `
-    <form id="submit-form" class="cd-form">
-      <label for="sub-problem">Problem:</label>
-      <select id="sub-problem" name="problemSlug">
-        ${problems.map(p => `<option value="${esc(p.slug)}"${p.slug === preselect ? " selected" : ""}>${esc(p.code)} - ${esc(p.title)}</option>`).join("")}
-      </select>
-      <label for="sub-lang">Language:</label>
-      <select id="sub-lang" name="language"><option value="cpp17">GNU C++17</option></select>
-      <label for="sub-code">Source code:</label>
-      <div></div>
-      <div class="full"><textarea id="sub-code" class="code-editor" name="code" spellcheck="false"></textarea></div>
-      <label for="sub-file">Or choose file:</label>
-      <input id="sub-file" type="file" accept=".cpp,.cc,.cxx,.h">
-      <div></div>
-      <div><button class="cd-button" type="submit">Submit</button> <span id="submit-msg"></span></div>
-    </form>`, { plain: true });
+  main.innerHTML =
+    intro("Submit solution", "GNU C++17 only for now. Paste the code or choose a file.") +
+    box("Submit", `
+      <form id="submit-form" class="submit-grid">
+        <label for="sub-problem">Problem:</label>
+        <select id="sub-problem" name="problemSlug" class="cf-select">
+          ${problems.map(p => `<option value="${esc(p.slug)}"${p.slug === preselect ? " selected" : ""}>${esc(p.code)} - ${esc(p.title)}</option>`).join("")}
+        </select>
+        <label for="sub-lang">Language:</label>
+        <select id="sub-lang" name="language" class="cf-select"><option value="cpp17">GNU C++17</option></select>
+        <label class="full" for="sub-code" style="text-align:left">Source code:</label>
+        <div class="full"><textarea id="sub-code" class="code-editor" name="code" spellcheck="false"></textarea></div>
+        <label for="sub-file">Or choose file:</label>
+        <input id="sub-file" type="file" accept=".cpp,.cc,.cxx,.h">
+        <div class="full action-buttons"><button class="btn" type="submit">Submit</button></div>
+        <div class="full" id="submit-msg"></div>
+      </form>`);
 
   const textarea = document.getElementById("sub-code");
   textarea.addEventListener("keydown", e => {
@@ -307,92 +370,112 @@ async function submitPage() {
     e.preventDefault();
     const form = e.target;
     const msg = document.getElementById("submit-msg");
-    if (!textarea.value.trim()) return void (msg.innerHTML = `<span class="error-text">The source code is empty.</span>`);
+    if (!textarea.value.trim()) return showMessage(msg, "The source code is empty.", true);
     await submitCode({ problemSlug: form.problemSlug.value, language: form.language.value, code: textarea.value }, msg);
   });
 
-  sidebar.innerHTML = await judgeBox();
+  sidebar.innerHTML = await payAttentionBox();
 }
 
 async function statusPage() {
-  setMenu("status");
+  setTitle("Status");
   const { submissions } = await api("/api/submissions");
-  main.innerHTML = box("Status", submissionsTable(submissions), { flush: true, plain: true });
-  sidebar.innerHTML = await judgeBox();
-  if (submissions.some(s => s.status !== "done")) pollTimer = setTimeout(() => route(), 2000);
+  main.innerHTML =
+    intro("Status", "All my submissions, newest first.") +
+    box(`Submissions (${submissions.length})`, submissionsTable(submissions), { flush: true });
+  sidebar.innerHTML = (await payAttentionBox()) + (await progressBox());
+  if (submissions.some(s => s.status !== "done")) pollTimer = setTimeout(route, 2000);
 }
 
 async function submissionPage(id) {
-  setMenu("status");
   const s = await api(`/api/submissions/${encodeURIComponent(id)}`);
+  setTitle(`Submission ${s.id}`);
 
   const summary = `<div class="table-wrap"><table class="datatable">
     <thead><tr><th>#</th><th>Problem</th><th class="hide-narrow">Lang</th><th>Verdict</th><th>Time</th><th class="hide-narrow">Memory</th><th class="hide-narrow">Sent</th></tr></thead>
     <tbody><tr>
-      <td class="center">${esc(s.id)}</td>
-      <td class="center"><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)}</a></td>
-      <td class="center hide-narrow">${esc(s.language)}</td>
-      <td class="center">${verdictHtml(s)}</td>
-      <td class="center">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
-      <td class="center hide-narrow">${s.status === "done" ? `${esc(s.memoryKb)} KB` : ""}</td>
-      <td class="center small hide-narrow">${formatWhen(s.createdAt)}</td>
+      <td>${esc(s.id)}</td>
+      <td><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
+      <td class="hide-narrow">${esc(s.language)}</td>
+      <td>${verdictHtml(s)}</td>
+      <td class="col-mono">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
+      <td class="col-mono hide-narrow">${s.status === "done" ? `${esc(s.memoryKb)} KB` : ""}</td>
+      <td class="col-when hide-narrow">${formatWhen(s.createdAt)}</td>
     </tr></tbody></table></div>`;
 
   const tests = s.tests.length
     ? `<div class="table-wrap"><table class="datatable">
         <thead><tr><th>Test</th><th>Verdict</th><th>Time</th><th>Memory</th></tr></thead>
         <tbody>${s.tests.map(t => `<tr>
-          <td class="center">${esc(t.n)}</td>
-          <td class="center">${verdictHtml({ status: "done", verdict: t.verdict })}</td>
-          <td class="center">${esc(t.timeMs)} ms</td>
-          <td class="center">${esc(t.memoryKb)} KB</td>
-        </tr>`).join("")}</tbody></table></div>
-        ${s.checkerMsg ? `<p class="small" style="padding:0 10px">Checker: <code>${esc(s.checkerMsg)}</code></p>` : ""}`
-    : `<p class="muted" style="padding:10px;margin:0">${s.status === "done" ? "No tests were run." : "Waiting for the judge…"}</p>`;
+          <td>${esc(t.n)}</td>
+          <td>${verdictHtml({ status: "done", verdict: t.verdict })}</td>
+          <td class="col-mono">${esc(t.timeMs)} ms</td>
+          <td class="col-mono">${esc(t.memoryKb)} KB</td>
+        </tr>`).join("")}</tbody></table></div>`
+    : `<p class="hint" style="margin:0;padding:8px 10px">${s.status === "done" ? "No tests were run." : "Waiting for the judge…"}</p>`;
 
   main.innerHTML =
-    box(`Submission ${esc(s.id)}`, summary, { flush: true, plain: true }) +
+    intro(`Submission ${esc(s.id)}`, "") +
+    box("Summary", summary, { flush: true }) +
     (s.compileOutput ? box("Compilation error", `<pre class="source-code">${esc(s.compileOutput)}</pre>`, { flush: true }) : "") +
-    box("Tests", tests, { flush: true }) +
+    box("Tests", tests, { flush: true, footer: s.checkerMsg ? `Checker: <code>${esc(s.checkerMsg)}</code>` : "" }) +
     box("Source code", `<pre class="source-code">${esc(s.code)}</pre>`, { flush: true });
-  sidebar.innerHTML = "";
-  if (s.status !== "done") pollTimer = setTimeout(() => route(), 1000);
+  sidebar.innerHTML = await payAttentionBox();
+  if (s.status !== "done") pollTimer = setTimeout(route, 1000);
 }
 
-function adminPage() {
-  setMenu("admin");
-  main.innerHTML = box("Admin", `<p>Problem management, publishing and rejudge arrive in milestone 4.</p>`, { plain: true });
-  sidebar.innerHTML = "";
+async function adminPage() {
+  setTitle("Admin");
+  main.innerHTML =
+    intro("Admin", "Problem management, publishing and rejudging arrive in milestone 4.") +
+    box("Coming later", `<p style="margin:0">Nothing to manage yet: problems are hard-coded in this build.</p>`);
+  sidebar.innerHTML = await payAttentionBox();
 }
 
 function notFoundPage() {
-  setMenu(null);
-  main.innerHTML = box("Not found", `<p>This page doesn't exist. <a href="/" data-link>Go home</a>.</p>`, { plain: true });
+  setTitle("Not found");
+  main.innerHTML = intro("Page not found", `This page doesn't exist. <a href="/" data-link>Go home</a>.`);
   sidebar.innerHTML = "";
 }
 
-// ---------- router ----------
+// ---------- router and navigation ----------
 
 const routes = [
-  [/^\/$/, homePage],
-  [/^\/problemset\/?$/, problemsetPage],
-  [/^\/problemset\/problem\/([\w-]+)\/?$/, problemPage],
-  [/^\/submit\/?$/, submitPage],
-  [/^\/status\/?$/, statusPage],
-  [/^\/submission\/(\w+)\/?$/, submissionPage],
-  [/^\/admin\/?$/, adminPage]
+  [/^\/$/, "home", homePage],
+  [/^\/problemset\/?$/, "problemset", problemsetPage],
+  [/^\/problemset\/problem\/([\w-]+)\/?$/, "problemset", problemPage],
+  [/^\/submit\/?$/, "submit", submitPage],
+  [/^\/status\/?$/, "status", statusPage],
+  [/^\/submission\/(\w+)\/?$/, "status", submissionPage],
+  [/^\/admin\/?$/, "admin", adminPage]
 ];
+
+const navBar = document.querySelector(".main-nav");
+const navToggle = document.getElementById("nav-toggle");
+
+function setNavOpen(open) {
+  navBar.classList.toggle("nav-open", open);
+  navToggle.setAttribute("aria-expanded", String(open));
+}
+
+function setActiveNav(key) {
+  document.querySelectorAll(".nav-link").forEach(a => a.classList.toggle("active", a.dataset.menu === key));
+  const active = document.querySelector(".nav-link.active");
+  document.getElementById("nav-toggle-label").textContent = active ? active.textContent.trim() : "Menu";
+  setNavOpen(false);
+}
 
 async function route() {
   clearTimeout(pollTimer);
   const path = location.pathname;
   const match = routes.find(([re]) => re.test(path));
+  setActiveNav(match?.[1]);
   try {
     if (!match) return notFoundPage();
-    const [re, page] = match;
+    const [re, , page] = match;
     await page(...path.match(re).slice(1));
   } catch (err) {
-    main.innerHTML = box("Error", `<p class="error-text">${esc(err.message)}</p>`, { plain: true });
+    main.innerHTML = intro("Something went wrong", "") + `<div class="message error">${esc(err.message)}</div>`;
   }
 }
 
@@ -404,41 +487,50 @@ function navigate(url) {
 
 document.addEventListener("click", e => {
   const link = e.target.closest("a[data-link]");
-  if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-  e.preventDefault();
-  navigate(link.getAttribute("href"));
+  if (link && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+    e.preventDefault();
+    navigate(link.getAttribute("href"));
+  }
+  if (!navBar.contains(e.target)) setNavOpen(false);
 });
 window.addEventListener("popstate", route);
 
-// ---------- header: session, logout, theme ----------
-
-const themeButton = document.getElementById("cd-theme");
-function updateThemeButton() {
-  themeButton.textContent = document.documentElement.dataset.theme === "dark" ? "Light mode" : "Dark mode";
-}
-themeButton.addEventListener("click", () => {
-  const dark = document.documentElement.dataset.theme !== "dark";
-  if (dark) document.documentElement.dataset.theme = "dark";
-  else delete document.documentElement.dataset.theme;
-  try { localStorage.setItem("cd-theme", dark ? "dark" : "light"); } catch (_) {}
-  updateThemeButton();
-});
-updateThemeButton();
-
-document.getElementById("cd-logout").addEventListener("click", async e => {
-  e.preventDefault();
-  await fetch("/api/auth/logout", { method: "POST" });
-  location.href = "/login";
-});
-
-const session = await fetch("/api/auth/session").then(r => r.json()).catch(() => ({}));
-if (session.authEnabled && !session.loggedIn) {
-  location.href = "/login";
-} else {
-  document.getElementById("cd-handle").textContent = session.handle || "akshat";
-  if (!session.authEnabled) {
-    document.getElementById("cd-logout").hidden = true;
-    document.querySelector("#cd-logout + .cd-sep").hidden = true;
+navToggle.addEventListener("click", () => setNavOpen(!navBar.classList.contains("nav-open")));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && navBar.classList.contains("nav-open")) {
+    setNavOpen(false);
+    navToggle.focus();
   }
+});
+
+// Header search: jump to a problem by its code (e.g. 1A), else search by name
+document.getElementById("nav-search").addEventListener("submit", async e => {
+  e.preventDefault();
+  const input = document.getElementById("nav-search-input");
+  const q = input.value.trim();
+  if (!q) return;
+  const { problems } = await api(`/api/problems?q=${encodeURIComponent(q)}`);
+  const exact = problems.find(p => p.code.toLowerCase() === q.toLowerCase());
+  input.value = "";
+  navigate(exact ? `/problemset/problem/${exact.slug}` : `/problemset?q=${encodeURIComponent(q)}`);
+});
+
+// ---------- start ----------
+
+initTheme();
+initFooter();
+
+const session = (await window.__sessionCheck) || {};
+if (session.authEnabled && session.loggedIn) {
+  const logout = document.getElementById("btn-logout");
+  logout.classList.remove("hidden");
+  logout.addEventListener("click", async e => {
+    e.preventDefault();
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.replace("/login");
+  });
+}
+if (!session.authEnabled || session.loggedIn) {
+  judgeStatusRequest = loadJudgeStatus();
   route();
 }
