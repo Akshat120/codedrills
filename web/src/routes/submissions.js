@@ -29,7 +29,8 @@ submissionRoutes.post("/", async (req, res) => {
   await dbReady();
   const exists = problemId &&
     (await collections.problems.countDocuments({ _id: problemId, published: true }, { limit: 1 }));
-  if (!exists) return res.status(400).json({ error: "Choose a problem." });
+  if (!problemId) return res.status(400).json({ error: "Enter a problem code like CD0017." });
+  if (!exists) return res.status(400).json({ error: `No problem ${problemId}.` });
   if (!languages.some(l => l.id === language)) return res.status(400).json({ error: "Choose a supported language." });
   if (typeof code !== "string" || !code.trim()) return res.status(400).json({ error: "The source code is empty." });
   if (Buffer.byteLength(code) > MAX_CODE_BYTES) return res.status(400).json({ error: "The source code is larger than 64 KB." });

@@ -118,15 +118,6 @@ export async function listProblems(options) {
   };
 }
 
-// Every published problem, for the Submit page's selector (code and title only)
-export async function listProblemOptions() {
-  await dbReady();
-  return collections.problems
-    .find({ published: true }, { projection: { _id: 0, code: "$_id", title: 1 } })
-    .sort({ number: 1 })
-    .toArray();
-}
-
 export async function getProblem(codeText) {
   const code = normalizeCode(codeText);
   if (!code) return null;

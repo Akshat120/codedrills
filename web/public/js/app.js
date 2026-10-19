@@ -140,6 +140,13 @@ function buildPagination(current, total, urlFor) {
     </nav>`;
 }
 
+// "cd17", "CD0017", "cd-17" → "CD0017"; null for anything else (same rule as
+// normalizeCode in src/data/platforms.js)
+function normalizeProblemCode(text) {
+  const match = /^\s*cd\s*-?\s*(\d{1,6})\s*$/i.exec(String(text || ""));
+  return match ? `CD${match[1].padStart(4, "0")}` : null;
+}
+
 // "Codeforces 1904A ↗" (linked when the original's URL is known), or the
 // platform name alone; "Original" for problems not based on another site
 function sourceHtml(p) {
@@ -503,16 +510,18 @@ async function submitCode(payload, msgEl) {
 
 async function submitPage() {
   setTitle("Submit");
-  const [{ problems }, langs] = await Promise.all([api("/api/problems/options"), getLanguages()]);
-  const preselect = new URLSearchParams(location.search).get("problem");
+  const langs = await getLanguages();
+  const preselect = new URLSearchParams(location.search).get("problem") || "";
   main.innerHTML =
     intro("Submit solution", `Paste the code or choose a file. Languages: ${esc(langs.map(l => l.name).join(", "))}.`) +
     box("Submit", `
       <form id="submit-form" class="submit-grid">
         <label for="sub-problem">Problem:</label>
-        <select id="sub-problem" name="problemCode" class="cf-select">
-          ${problems.map(p => `<option value="${esc(p.code)}"${p.code === preselect ? " selected" : ""}>${esc(p.code)} - ${esc(p.title)}</option>`).join("")}
-        </select>
+        <div class="problem-code-field">
+          <input type="text" id="sub-problem" name="problemCode" class="cf-input" placeholder="e.g. CD0017"
+                 value="${esc(preselect)}" autocomplete="off" spellcheck="false" maxlength="12" aria-describedby="sub-problem-info">
+          <span id="sub-problem-info" class="problem-code-info" aria-live="polite"></span>
+        </div>
         <label for="sub-lang">Language:</label>
         <select id="sub-lang" name="language" class="cf-select">${languageOptions(langs)}</select>
         <label class="full" for="sub-code" style="text-align:left">Source code:</label>
@@ -522,6 +531,42 @@ async function submitPage() {
         <div class="full action-buttons"><button class="btn" type="submit">Submit</button></div>
         <div class="full" id="submit-msg"></div>
       </form>`);
+
+  // The problem is typed as its code (cd17, CD0017) and looked up as you type
+  const problemInput = document.getElementById("sub-problem");
+  const problemInfo = document.getElementById("sub-problem-info");
+  let lookupTimer = null;
+  let lookupId = 0;
+  let resolved = null; // { code, title } of the problem the field names, or null
+
+  async function lookUpProblem() {
+    const requestId = ++lookupId;
+    resolved = null;
+    const text = problemInput.value.trim();
+    const code = normalizeProblemCode(text);
+    if (!text) return void (problemInfo.innerHTML = "");
+    if (!code) return showProblemInfo("Enter a problem code like CD0017.", true);
+    showProblemInfo("Looking up…", false);
+    try {
+      const p = await api(`/api/problems/${code}`);
+      if (requestId !== lookupId) return;
+      resolved = { code: p.code, title: p.title };
+      problemInfo.innerHTML = `<a href="/problemset/problem/${esc(p.code)}" data-link>${esc(p.code)}. ${esc(p.title)}</a>`;
+    } catch (_) {
+      if (requestId === lookupId) showProblemInfo(`No problem ${code}.`, true);
+    }
+  }
+
+  function showProblemInfo(text, isError) {
+    problemInfo.innerHTML = `<span class="${isError ? "error-text" : "muted"}"></span>`;
+    problemInfo.firstChild.textContent = text;
+  }
+
+  problemInput.addEventListener("input", () => {
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(lookUpProblem, 250);
+  });
+  if (preselect) lookUpProblem();
 
   const textarea = document.getElementById("sub-code");
   textarea.addEventListener("keydown", e => {
@@ -542,8 +587,14 @@ async function submitPage() {
     e.preventDefault();
     const form = e.target;
     const msg = document.getElementById("submit-msg");
+    clearTimeout(lookupTimer);
+    if (!resolved || resolved.code !== normalizeProblemCode(problemInput.value)) await lookUpProblem();
+    if (!resolved) {
+      problemInput.focus();
+      return showMessage(msg, problemInput.value.trim() ? "Enter the code of an existing problem, like CD0017." : "Enter the problem code.", true);
+    }
     if (!textarea.value.trim()) return showMessage(msg, "The source code is empty.", true);
-    await submitCode({ problemCode: form.problemCode.value, language: form.language.value, code: textarea.value }, msg);
+    await submitCode({ problemCode: resolved.code, language: form.language.value, code: textarea.value }, msg);
   });
 
   sidebar.innerHTML = await payAttentionBox();
@@ -681,9 +732,9 @@ document.getElementById("nav-search").addEventListener("submit", async e => {
   const input = document.getElementById("nav-search-input");
   const q = input.value.trim();
   if (!q) return;
-  const code = /^cd\s*-?\s*(\d{1,6})$/i.exec(q);
+  const code = normalizeProblemCode(q);
   input.value = "";
-  navigate(code ? `/problemset/problem/CD${code[1].padStart(4, "0")}` : `/problemset?q=${encodeURIComponent(q)}`);
+  navigate(code ? `/problemset/problem/${code}` : `/problemset?q=${encodeURIComponent(q)}`);
 });
 
 // ---------- start ----------
