@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enter — CodeDrills</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/codedrills.css">
+</head>
+<body>
+  <div class="cd-page">
+    <header class="cd-header">
+      <a class="cd-brand" href="/">
+        <img src="/logo.svg" alt="" width="40" height="40">
+        <span class="cd-brand-name">Code<span>Drills</span></span>
+      </a>
+    </header>
+    <div style="max-width:420px;margin:40px auto">
+      <div class="roundbox">
+        <div class="caption">Enter</div>
+        <div class="content">
+          <form id="login-form" class="cd-form">
+            <label for="password">Password:</label>
+            <input id="password" type="password" name="password" autocomplete="current-password" required autofocus>
+            <div></div>
+            <div><button class="cd-button" type="submit">Login</button></div>
+            <div class="full small" id="login-msg"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/js/login.js"></script>
+</body>
+</html>
