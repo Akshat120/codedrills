@@ -88,6 +88,10 @@ first failure, update `currentTest` after each → run the checker in its own bo
 → write verdicts. Expired leases are reclaimed; after 3 attempts the verdict is
 "Judgement failed".
 
+Languages: not C++ only. Each language is an entry with an id, a compile
+command (or none) and a run command; the web app lists the same ids in
+`web/src/data/languages.js`. C++17 is the first; which others to add is open.
+
 Per-run limits: `--cg-mem` = memory limit, CPU = TL, wall = 3×TL,
 `--processes=1`, `--fsize` 64 MB, no network, empty env, read-only mounts,
 stack = memory limit. Compile flags: `g++ -std=gnu++17 -O2 -pipe -static
@@ -121,7 +125,7 @@ problems    { _id, slug, code, title, statementHtml, samples: [{input, output}],
 builds      { _id, slug, commit, sourceHash, status: requested|running|passed|failed,
               steps: [{name, ok, ms, log}], package: {sha256, r2Key, formatVersion, testCount},
               localMaxMs, judgeMaxMs, logUrl, createdAt }
-submissions { _id, problemId, problemSlug, language: "cpp17", code, codeBytes,
+submissions { _id, problemId, problemSlug, language /* id, e.g. "cpp17" */, code, codeBytes,
               status: queued|compiling|running|done, verdict: AC|WA|TLE|MLE|RE|CE|IE|null,
               failedTest, currentTest, timeMs, memoryKb, compileOutput,
               tests: [{n, verdict, timeMs, memoryKb, checkerMsg}],
