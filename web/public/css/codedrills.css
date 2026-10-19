@@ -783,3 +783,61 @@ html.auth-pending body { visibility: hidden; }
   .spinner { animation-duration: 2s; }
   #problemset-box .table-wrap, #ps-pager { transition: none; }
 }
+
+/* Problem page "Submit?" box: labels on the left, controls on the right,
+   a wide grey Submit button under the controls (Codeforces' quick submit) */
+.quick-submit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px 8px;
+  padding: 8px 0 4px;
+  font-size: 13px;
+}
+.quick-submit > label { line-height: 1.2; max-width: 64px; } /* "Choose file:" wraps, like Codeforces */
+.quick-submit select {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--input-border);
+  border-radius: 3px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 13px;
+}
+/* File picker drawn by us: a grey "Choose file" button and the file name,
+   so it looks the same in every browser and never gets clipped */
+.file-picker { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.file-picker-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-picker-button {
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: #e1e1e1;
+  color: #000;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.file-picker-button:hover { background: #d4d4d4; }
+.file-picker-input:focus-visible + .file-picker-button { outline: 2px solid var(--input-focus); outline-offset: 1px; }
+.file-picker-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-theme="dark"] .file-picker-button { background: #4a4d52; color: #e8e8e8; }
+[data-theme="dark"] .file-picker-button:hover { background: #5a5e64; }
+.quick-submit-btn {
+  justify-self: center;
+  width: 70%;
+  height: 34px;
+  border: 0;
+  border-radius: 3px;
+  background: #e1e1e1;
+  color: #000;
+  font-family: var(--cf-font-family);
+  font-size: 15px;
+  cursor: pointer;
+}
+.quick-submit-btn:hover { background: #d4d4d4; }
+[data-theme="dark"] .quick-submit-btn { background: #4a4d52; color: #e8e8e8; }
+[data-theme="dark"] .quick-submit-btn:hover { background: #5a5e64; }
+.quick-submit-msg { grid-column: 1 / -1; }
+.quick-submit-msg:empty { display: none; }

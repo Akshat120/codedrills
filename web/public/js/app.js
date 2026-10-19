@@ -465,22 +465,24 @@ async function problemPage(code) {
 
   sidebar.innerHTML =
     box("Submit?", `
-      <form id="quick-submit" class="cf-filter-form">
-        <div>
-          <label class="cf-filter-label" for="quick-lang">Language:</label>
-          <select id="quick-lang" name="language" class="cf-select">${languageOptions(langs)}</select>
+      <form id="quick-submit" class="quick-submit">
+        <label for="quick-lang">Language:</label>
+        <select id="quick-lang" name="language">${languageOptions(langs)}</select>
+        <label for="quick-file">Choose file:</label>
+        <div class="file-picker">
+          <input id="quick-file" type="file" name="file" accept="${fileAccept(langs)}" class="file-picker-input">
+          <label for="quick-file" class="file-picker-button">Choose file</label>
+          <span class="file-picker-name" id="quick-file-name">No file chosen</span>
         </div>
-        <div>
-          <label class="cf-filter-label" for="quick-file">Choose file:</label>
-          <input id="quick-file" type="file" name="file" accept="${fileAccept(langs)}">
-        </div>
-        <div class="cf-filter-actions"><button class="btn" type="submit">Submit</button></div>
-        <div id="quick-msg"></div>
+        <span></span>
+        <button class="quick-submit-btn" type="submit">Submit</button>
+        <div id="quick-msg" class="quick-submit-msg"></div>
       </form>`) +
     box("Last submissions", submissionsTable(subs.submissions.slice(0, 5), { compact: true }), { flush: true }) +
     box("Problem tags", `${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}<span class="tag ${ratingClass(p.difficulty)}" title="Difficulty">*${esc(p.difficulty)}</span>`);
 
   document.getElementById("quick-file").addEventListener("change", e => {
+    document.getElementById("quick-file-name").textContent = e.target.files[0]?.name || "No file chosen";
     const lang = e.target.files[0] && languageForFile(langs, e.target.files[0].name);
     if (lang) document.getElementById("quick-lang").value = lang.id;
   });
