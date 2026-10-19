@@ -651,7 +651,7 @@ async function adminPage() {
   setTitle("Admin");
   main.innerHTML =
     intro("Admin", "Problem management, publishing and rejudging arrive in milestone 4.") +
-    box("Coming later", `<p style="margin:0">Nothing to manage yet: problems are hard-coded in this build.</p>`);
+    box("Coming later", `<p style="margin:0">Nothing to manage yet: problems come from the sample data (<code>npm run seed</code>).</p>`);
   sidebar.innerHTML = await payAttentionBox();
 }
 
