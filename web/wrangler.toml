@@ -1,0 +1,25 @@
+name = "codedrills"
+main = "src/entry.cloudflare.js"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Keep variables added in the dashboard: without this, every deploy deletes
+# the plain-text ones (only encrypted secrets would survive)
+keep_vars = true
+
+# Copies KaTeX into public/vendor before deploying
+[build]
+command = "npm run build"
+
+# Secrets (APP_PASSWORD_HASH, optional SESSION_SECRET) go in the dashboard:
+# Worker → Settings → Variables and Secrets, or `wrangler secret put`.
+[vars]
+CF_WORKER = "1"
+
+# Cloudflare serves ./public directly; page routes (/problemset, /status, ...)
+# fall back to index.html. Only the API and /health reach the Worker.
+[assets]
+directory = "./public"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/health"]
