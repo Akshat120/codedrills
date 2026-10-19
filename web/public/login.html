@@ -1,36 +1,73 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-public>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Enter — CodeDrills</title>
+  <meta name="theme-color" content="#3b5998">
+  <title>Log in · CodeDrills</title>
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
-  <script src="/js/theme.js"></script>
+  <script src="/js/boot.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cuprum:wght@400;700&family=Montserrat:wght@700&family=PT+Sans+Narrow:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/codedrills.css">
 </head>
 <body>
-  <div class="cd-page">
-    <header class="cd-header">
-      <a class="cd-brand" href="/">
-        <img src="/logo.svg" alt="" width="40" height="40">
-        <span class="cd-brand-name">Code<span>Drills</span></span>
-      </a>
-    </header>
-    <div style="max-width:420px;margin:40px auto">
-      <div class="roundbox">
-        <div class="caption">Enter</div>
-        <div class="content">
-          <form id="login-form" class="cd-form">
-            <label for="password">Password:</label>
-            <input id="password" type="password" name="password" autocomplete="current-password" required autofocus>
-            <div></div>
-            <div><button class="cd-button" type="submit">Login</button></div>
-            <div class="full small" id="login-msg"></div>
-          </form>
+  <header class="site-header">
+    <div class="header-top">
+      <a class="brand" href="/login">
+        <img class="brand-logo" src="/logo.svg" alt="" width="40" height="40">
+        <div class="brand-titles">
+          <span class="brand-text" aria-label="CodeDrills"><span class="brand-code" aria-hidden="true"><span class="brand-cap">C</span>ode</span><span class="brand-drills" aria-hidden="true"><span class="brand-cap">D</span>rills</span></span>
+          <span class="brand-sub">Practice Judge <b>for C++</b></span>
         </div>
+      </a>
+      <div class="header-right">
+        <button type="button" id="btn-theme-toggle" class="cf-theme-toggle-btn" title="Switch to dark theme" aria-label="Switch to dark theme">
+          <span class="theme-icon">🌙</span>
+          <span class="theme-text">Dark Theme</span>
+        </button>
+        <a href="#login" class="header-logout">Owner log in</a>
       </div>
     </div>
+  </header>
+
+  <div class="page-wrap">
+    <main class="content-column">
+      <section class="roundbox landing-hero">
+        <h1>Drill original problems, judged per test.</h1>
+        <p>CodeDrills is a private competitive-programming judge. Pick a problem, submit C++17, and see the verdict on every hidden test, from Accepted to Time limit exceeded on test 5.</p>
+        <p>Every problem is original, and its tests are only published after automatic validation and stress testing against a brute-force solution.</p>
+      </section>
+    </main>
+    <aside class="sidebar">
+      <section class="roundbox" id="login">
+        <div class="caption">Owner log in</div>
+        <div class="roundbox-body">
+          <p class="hint" style="margin:0 0 8px">This judge is private: it has one user.</p>
+          <form id="login-form">
+            <div class="login-field">
+              <label for="password">Password</label>
+              <input type="password" id="password" class="cf-input" autocomplete="current-password" required>
+            </div>
+            <p class="login-error" id="login-error" role="alert"></p>
+            <button type="submit" class="btn">Log in</button>
+          </form>
+        </div>
+      </section>
+    </aside>
   </div>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <img class="site-footer-logo" src="/logo.svg" alt="" width="20" height="20">
+      <span><b>CodeDrills</b> · Private practice judge with an original problem bank</span>
+    </div>
+    <div class="site-footer-note">
+      © <span class="site-footer-year">2026</span> <a href="https://akshatdhiman.in" target="_blank" rel="noopener">Akshat Dhiman</a> · All problems are original; this project is not affiliated with Codeforces.
+    </div>
+  </footer>
+
   <script type="module" src="/js/login.js"></script>
 </body>
 </html>
