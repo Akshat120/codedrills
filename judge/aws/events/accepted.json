@@ -1,0 +1,10 @@
+{
+  "submissionId": "console-test",
+  "language": "cpp17",
+  "code": "// Reference solution for CD0001 Even Prefixes: count prefixes whose sum is\n// even. Only the parity of the running sum matters.\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    int t;\n    if (scanf(\"%d\", &t) != 1) return 0;\n    while (t--) {\n        int n;\n        scanf(\"%d\", &n);\n        long long sum = 0;\n        int even = 0;\n        for (int i = 0; i < n; i++) {\n            long long x;\n            scanf(\"%lld\", &x);\n            sum += x;\n            if (sum % 2 == 0) even++;\n        }\n        printf(\"%d\\n\", even);\n    }\n}\n",
+  "problem": {
+    "code": "CD0001",
+    "timeLimitMs": 1000,
+    "memoryLimitMb": 256
+  }
+}

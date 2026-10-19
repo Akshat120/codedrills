@@ -6,6 +6,7 @@ import { authRoutes, requireAuth } from "./auth.js";
 import { problemRoutes } from "./routes/problems.js";
 import { submissionRoutes } from "./routes/submissions.js";
 import { languages } from "./data/languages.js";
+import { judgeConfigError, judgeOnline } from "./judgeClient.js";
 
 // The Express app, shared by the local server (src/server.js) and the
 // Cloudflare Worker (src/entry.cloudflare.js). On Cloudflare, static files and
@@ -72,8 +73,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/problems", requireAuth, problemRoutes);
 app.use("/api/submissions", requireAuth, submissionRoutes);
 app.get("/api/languages", requireAuth, (_req, res) => res.json({ languages }));
-app.get("/api/judge/status", requireAuth, (_req, res) => {
-  res.json({ online: false, message: "Judge not connected yet (milestone 2)." });
+app.get("/api/judge/status", requireAuth, async (_req, res) => {
+  const online = await judgeOnline();
+  res.json({
+    online,
+    message: online ? "" : judgeConfigError() || (process.env.CF_WORKER ? "The judge isn't answering." : "The judge isn't running: npm run db:up starts it.")
+  });
 });
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found." }));
 

@@ -76,6 +76,12 @@ async function main() {
 
   await collections.problems.insertMany(docs);
   await collections.submissions.insertMany(subs);
+  // New submissions are numbered after the samples
+  await collections.counters.updateOne(
+    { _id: "submissions" },
+    { $set: { seq: Math.max(...subs.map(s => s.id)) } },
+    { upsert: true }
+  );
   console.log(`Seeded ${docs.length} problems (CD0001–${docs.at(-1)._id}, the last one unpublished) and ${subs.length} submissions.`);
 }
 

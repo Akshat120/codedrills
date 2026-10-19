@@ -63,7 +63,8 @@ const collection = name =>
 
 export const collections = {
   problems: collection("problems"),
-  submissions: collection("submissions")
+  submissions: collection("submissions"),
+  counters: collection("counters")
 };
 
 export function runWithRequestClient(res, handle) {
@@ -96,6 +97,7 @@ export const INDEXES = {
     { key: { createdAt: -1 }, name: "newest" },
     { key: { problemCode: 1, createdAt: -1 }, name: "by_problem_newest" }
   ]
+  // counters: one document per sequence (_id "submissions"); no extra index
 };
 
 function ensureIndexes() {

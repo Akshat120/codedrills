@@ -55,7 +55,7 @@ function ratingClass(r) {
 function verdictHtml(s) {
   if (s.status === "queued") return `<span class="verdict-waiting">In queue</span>`;
   if (s.status === "compiling") return `<span class="verdict-waiting">Compiling</span>`;
-  if (s.status === "running") return `<span class="verdict-waiting">Running on test ${esc(s.currentTest || 1)}</span>`;
+  if (s.status === "judging") return `<span class="verdict-waiting"><span class="spinner" aria-hidden="true"></span> Running…</span>`;
   const text = VERDICT_TEXT[s.verdict] || s.verdict;
   if (s.verdict === "AC") return `<span class="verdict-accepted">${text}</span>`;
   if (s.verdict === "CE") return `<a class="verdict-rejected" href="/submission/${esc(s.id)}" data-link>${text}</a>`;
@@ -98,8 +98,15 @@ function languageOptions(langs) {
   return langs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
 }
 
-function fileAccept(langs) {
-  return langs.flatMap(l => l.extensions).join(",");
+// No accept filter on the file inputs: macOS greys out .cpp files when it
+// doesn't map the extension to a known file type. Files are checked here.
+const MAX_FILE_BYTES = 64 * 1024;
+function fileProblem(langs, file) {
+  if (!languageForFile(langs, file.name)) {
+    return `Unsupported file type. Use ${langs.flatMap(l => l.extensions).join(", ")}.`;
+  }
+  if (file.size > MAX_FILE_BYTES) return "The file is larger than 64 KB.";
+  return null;
 }
 
 function languageForFile(langs, name) {
@@ -242,7 +249,7 @@ async function homePage() {
         <p>Every problem's tests are checked before publishing: inputs are validated, the reference
         solution is stress-tested against a brute force, and its running time is measured on the judge.</p>
       </div>
-      <div class="message">Sample data: problems and submissions come from <code>npm run seed</code>, and the judge isn't connected yet.</div>
+      <div class="message">Sample data: problems and submissions come from <code>npm run seed</code>. Only CD0001 has tests on the judge so far.</div>
     </article>`;
   sidebar.innerHTML = (await payAttentionBox()) + (await progressBox());
 }
@@ -465,30 +472,38 @@ async function problemPage(code) {
 
   sidebar.innerHTML =
     box("Submit?", `
-      <form id="quick-submit" class="cf-filter-form">
-        <div>
-          <label class="cf-filter-label" for="quick-lang">Language:</label>
-          <select id="quick-lang" name="language" class="cf-select">${languageOptions(langs)}</select>
+      <form id="quick-submit" class="quick-submit">
+        <label for="quick-lang">Language:</label>
+        <select id="quick-lang" name="language">${languageOptions(langs)}</select>
+        <label for="quick-file">Choose file:</label>
+        <div class="file-picker">
+          <input id="quick-file" type="file" name="file" class="file-picker-input">
+          <label for="quick-file" class="file-picker-button">Choose file</label>
+          <span class="file-picker-name" id="quick-file-name">No file chosen</span>
         </div>
-        <div>
-          <label class="cf-filter-label" for="quick-file">Choose file:</label>
-          <input id="quick-file" type="file" name="file" accept="${fileAccept(langs)}">
-        </div>
-        <div class="cf-filter-actions"><button class="btn" type="submit">Submit</button></div>
-        <div id="quick-msg"></div>
+        <button class="quick-submit-btn" type="submit">Submit</button>
+        <div id="quick-msg" class="quick-submit-msg"></div>
       </form>`) +
     box("Last submissions", submissionsTable(subs.submissions.slice(0, 5), { compact: true }), { flush: true }) +
     box("Problem tags", `${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}<span class="tag ${ratingClass(p.difficulty)}" title="Difficulty">*${esc(p.difficulty)}</span>`);
 
   document.getElementById("quick-file").addEventListener("change", e => {
-    const lang = e.target.files[0] && languageForFile(langs, e.target.files[0].name);
-    if (lang) document.getElementById("quick-lang").value = lang.id;
+    const file = e.target.files[0];
+    const msg = document.getElementById("quick-msg");
+    msg.innerHTML = "";
+    document.getElementById("quick-file-name").textContent = file?.name || "No file chosen";
+    if (!file) return;
+    const problem = fileProblem(langs, file);
+    if (problem) return showMessage(msg, problem, true);
+    document.getElementById("quick-lang").value = languageForFile(langs, file.name).id;
   });
   document.getElementById("quick-submit").addEventListener("submit", async e => {
     e.preventDefault();
     const msg = document.getElementById("quick-msg");
     const file = e.target.file.files[0];
     if (!file) return showMessage(msg, "Choose a file first.", true);
+    const problem = fileProblem(langs, file);
+    if (problem) return showMessage(msg, problem, true);
     await submitCode({ problemCode: p.code, language: e.target.language.value, code: await file.text() }, msg);
   });
 }
@@ -527,7 +542,7 @@ async function submitPage() {
         <label class="full" for="sub-code" style="text-align:left">Source code:</label>
         <div class="full"><textarea id="sub-code" class="code-editor" name="code" spellcheck="false"></textarea></div>
         <label for="sub-file">Or choose file:</label>
-        <input id="sub-file" type="file" accept="${fileAccept(langs)}">
+        <input id="sub-file" type="file">
         <div class="full action-buttons"><button class="btn" type="submit">Submit</button></div>
         <div class="full" id="submit-msg"></div>
       </form>`);
@@ -579,6 +594,12 @@ async function submitPage() {
   document.getElementById("sub-file").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
+    const problem = fileProblem(langs, file);
+    if (problem) {
+      e.target.value = "";
+      return showMessage(document.getElementById("submit-msg"), problem, true);
+    }
+    document.getElementById("submit-msg").innerHTML = "";
     textarea.value = await file.text();
     const lang = languageForFile(langs, file.name);
     if (lang) document.getElementById("sub-lang").value = lang.id;
@@ -610,8 +631,27 @@ async function statusPage() {
   if (submissions.some(s => s.status !== "done")) pollTimer = setTimeout(route, 2000);
 }
 
+// Source code shown like a Codeforces listing (Google Code Prettify, the
+// highlighter Codeforces uses), same as CodeReflections.
+const PRETTIFY_LANG = { cpp17: "cpp" };
+function sourceListing(code, language) {
+  const escaped = esc(code || "");
+  let body = escaped;
+  if (window.PR && typeof window.PR.prettyPrintOne === "function") {
+    try {
+      body = window.PR.prettyPrintOne(escaped, PRETTIFY_LANG[language], false);
+    } catch (_) {
+      body = escaped;
+    }
+  }
+  return `<pre class="prettyprint cf-source">${body}</pre>`;
+}
+
 async function submissionPage(id) {
   const s = await api(`/api/submissions/${encodeURIComponent(id)}`);
+  // This page starts judging a queued submission right away, so show it as running
+  const startJudging = s.status === "queued";
+  if (startJudging) s.status = "judging";
   setTitle(`Submission ${s.id}`);
 
   const summary = `<div class="table-wrap"><table class="datatable">
@@ -626,10 +666,10 @@ async function submissionPage(id) {
       <td class="col-when hide-narrow">${formatWhen(s.createdAt)}</td>
     </tr></tbody></table></div>`;
 
-  const tests = s.tests.length
+  const tests = s.tests?.length
     ? `<div class="table-wrap"><table class="datatable">
         <thead><tr><th>Test</th><th>Verdict</th><th>Time</th><th>Memory</th></tr></thead>
-        <tbody>${s.tests.map(t => `<tr>
+        <tbody>${(s.tests || []).map(t => `<tr>
           <td>${esc(t.n)}</td>
           <td>${verdictHtml({ status: "done", verdict: t.verdict })}</td>
           <td class="col-mono">${esc(t.timeMs)} ms</td>
@@ -640,11 +680,22 @@ async function submissionPage(id) {
   main.innerHTML =
     intro(`Submission ${esc(s.id)}`, "") +
     box("Summary", summary, { flush: true }) +
+    box("Source code", sourceListing(s.code, s.language)) +
     (s.compileOutput ? box("Compilation error", `<pre class="source-code">${esc(s.compileOutput)}</pre>`, { flush: true }) : "") +
-    box("Tests", tests, { flush: true, footer: s.checkerMsg ? `Checker: <code>${esc(s.checkerMsg)}</code>` : "" }) +
-    box("Source code", `<pre class="source-code">${esc(s.code)}</pre>`, { flush: true });
+    box("Tests", tests, { flush: true, footer: s.checkerMsg ? `Checker: <code>${esc(s.checkerMsg)}</code>` : "" });
   sidebar.innerHTML = await payAttentionBox();
-  if (s.status !== "done") pollTimer = setTimeout(route, 1000);
+  // A queued submission is judged by asking for it here (the request returns
+  // once the verdicts are in); one being judged elsewhere is polled
+  if (startJudging) {
+    const judgingId = s.id;
+    api(`/api/submissions/${encodeURIComponent(judgingId)}/judge`, { method: "POST", body: "{}" })
+      .catch(() => {})
+      .then(() => {
+        if (location.pathname === `/submission/${judgingId}`) route();
+      });
+  } else if (s.status !== "done") {
+    pollTimer = setTimeout(route, 1500);
+  }
 }
 
 async function adminPage() {

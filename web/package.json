@@ -7,7 +7,7 @@
     "dev": "npm run build && node --env-file-if-exists=.env --watch src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
     "build": "node scripts/copy-vendor.js",
-    "db:up": "docker compose -f ../docker-compose.yml up -d --wait",
+    "db:up": "docker compose -f ../docker-compose.yml up -d --wait --build",
     "db:down": "docker compose -f ../docker-compose.yml down",
     "seed": "node --env-file-if-exists=.env scripts/seed.js",
     "db:explain": "node --env-file-if-exists=.env scripts/explain.js",
@@ -16,6 +16,8 @@
     "cf:deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
+    "aws4fetch": "^1.0.20",
+    "code-prettify": "^0.1.0",
     "express": "^5.1.0",
     "katex": "^0.16.22",
     "mongodb": "^6.21.0"

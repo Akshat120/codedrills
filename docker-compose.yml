@@ -1,7 +1,11 @@
-# The local development database: `npm run db:up` (in web/) starts it,
-# `npm run db:down` stops it. The app finds it at its default address,
-# mongodb://127.0.0.1:27018 (27017 is left free for CodeReflections).
-# Data lives in the named volume; `docker compose down -v` deletes it.
+# Local development services: `npm run db:up` (in web/) starts them,
+# `npm run db:down` stops them. Both listen on this machine only.
+#
+# - mongo: the database, at mongodb://127.0.0.1:27018 (27017 is left free for
+#   CodeReflections). Data lives in the named volume; `docker compose down -v`
+#   deletes it.
+# - judge: the judge in AWS's Lambda image, invoked like the real function at
+#   http://127.0.0.1:9001/2015-03-31/functions/function/invocations
 services:
   mongo:
     image: mongo:7
@@ -17,6 +21,16 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
+
+  judge:
+    build:
+      context: ./judge
+    image: codedrills-judge
+    container_name: codedrills-judge
+    platform: linux/arm64
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9001:8080"
 
 volumes:
   mongo-data:
