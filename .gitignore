@@ -13,3 +13,6 @@ web/public/vendor/
 
 # Local working copies
 .claude/
+
+# Generated test data (built by each problem's make-tests.mjs)
+judge/problems/*/tests/

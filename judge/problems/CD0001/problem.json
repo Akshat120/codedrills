@@ -1,0 +1,20 @@
+{
+  "code": "CD0001",
+  "title": "Even Prefixes",
+  "timeLimitMs": 1000,
+  "memoryLimitMb": 256,
+  "checker": "tokens",
+  "tests": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11"
+  ]
+}

@@ -71,7 +71,6 @@ const tests = (count, verdictAt, failing, base = 15) =>
   }));
 
 export const submissions = [
-  { language: "cpp17", id: 1009, problemKey: "toll-roads", status: "running", verdict: null, currentTest: 4, createdAt: minutesAgo(0.2), code: "// judging...\n", tests: [] },
   { language: "cpp17", id: 1008, problemKey: "even-prefixes", status: "done", verdict: "AC", timeMs: 46, memoryKb: 3800, createdAt: minutesAgo(5), code: SOLUTION_1A, tests: tests(12, 0, null) },
   { language: "cpp17", id: 1007, problemKey: "even-prefixes", status: "done", verdict: "WA", failedTest: 3, timeMs: 31, memoryKb: 3700, createdAt: minutesAgo(12), code: SOLUTION_1A.replace("long long sum", "int sum"), tests: tests(3, 3, "WA"), checkerMsg: "wrong answer 1st numbers differ - expected: '2', found: '1'" },
   { language: "cpp17", id: 1006, problemKey: "tea-stall-queue", status: "done", verdict: "TLE", failedTest: 5, timeMs: 2000, memoryKb: 9100, createdAt: minutesAgo(40), code: "// O(n^2) attempt\n", tests: [...tests(4, 0, null), { n: 5, verdict: "TLE", timeMs: 2000, memoryKb: 9100 }] },
@@ -79,5 +78,4 @@ export const submissions = [
   { language: "cpp17", id: 1004, problemKey: "lamp-corridor", status: "done", verdict: "RE", failedTest: 2, timeMs: 15, memoryKb: 3400, createdAt: minutesAgo(70), code: "// out-of-bounds access\n", tests: tests(2, 2, "RE"), checkerMsg: "Exit code is -1073741819 (SIGSEGV)" },
   { language: "cpp17", id: 1003, problemKey: "warehouse-rows", status: "done", verdict: "MLE", failedTest: 7, timeMs: 343, memoryKb: 524288, createdAt: minutesAgo(130), code: "// int dp[5000][5000][3]\n", tests: tests(7, 7, "MLE") },
   { language: "cpp17", id: 1002, problemKey: "pebble-piles", status: "done", verdict: "AC", timeMs: 15, memoryKb: 3500, createdAt: minutesAgo(1440), code: "// xor of piles\n", tests: tests(20, 0, null) },
-  { language: "cpp17", id: 1001, problemKey: "pebble-piles", status: "queued", verdict: null, createdAt: minutesAgo(0.1), code: "// waiting\n", tests: [] }
 ];

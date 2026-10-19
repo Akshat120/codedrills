@@ -9,19 +9,21 @@ judge choice, hosting plan and security notes.
 
 ## Status
 
-**Sample-data stage.** The web app (`web/`) reads problems and submissions
-from MongoDB, filled with sample data by `npm run seed`. There is no judge yet,
-so submitting is validated and then refused with a message.
+**Judge running locally.** The web app (`web/`) reads problems and
+submissions from MongoDB (sample data from `npm run seed`). Submissions are
+judged by the judge in `judge/`, which runs in Docker locally and will run on
+AWS Lambda. Only the sample problem CD0001 has tests so far.
 
 | Part | Where | State |
 |---|---|---|
 | Web app (Express 5 on Cloudflare Workers + static SPA) | `web/` | Sample data in MongoDB |
-| Judge (isolate worker on a VPS) | `judge/` | Not started |
+| Judge (AWS Lambda; Docker locally) | `judge/` | Works locally; AWS deployment next |
 | Problem pipeline (testlib, GitHub Actions) | `pipeline/` | Not started |
 
 ## Run the web app locally
 
-Needs Node 22 or newer and Docker (for the local MongoDB on port 27018).
+Needs Node 22 or newer and Docker (for the local MongoDB on port 27018 and
+the judge on port 9001; `npm run db:up` builds and starts both).
 
 ```bash
 cd web

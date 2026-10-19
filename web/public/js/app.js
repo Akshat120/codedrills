@@ -55,7 +55,7 @@ function ratingClass(r) {
 function verdictHtml(s) {
   if (s.status === "queued") return `<span class="verdict-waiting">In queue</span>`;
   if (s.status === "compiling") return `<span class="verdict-waiting">Compiling</span>`;
-  if (s.status === "running") return `<span class="verdict-waiting">Running on test ${esc(s.currentTest || 1)}</span>`;
+  if (s.status === "judging") return `<span class="verdict-waiting"><span class="spinner" aria-hidden="true"></span> Running…</span>`;
   const text = VERDICT_TEXT[s.verdict] || s.verdict;
   if (s.verdict === "AC") return `<span class="verdict-accepted">${text}</span>`;
   if (s.verdict === "CE") return `<a class="verdict-rejected" href="/submission/${esc(s.id)}" data-link>${text}</a>`;
@@ -242,7 +242,7 @@ async function homePage() {
         <p>Every problem's tests are checked before publishing: inputs are validated, the reference
         solution is stress-tested against a brute force, and its running time is measured on the judge.</p>
       </div>
-      <div class="message">Sample data: problems and submissions come from <code>npm run seed</code>, and the judge isn't connected yet.</div>
+      <div class="message">Sample data: problems and submissions come from <code>npm run seed</code>. Only CD0001 has tests on the judge so far.</div>
     </article>`;
   sidebar.innerHTML = (await payAttentionBox()) + (await progressBox());
 }
@@ -612,6 +612,9 @@ async function statusPage() {
 
 async function submissionPage(id) {
   const s = await api(`/api/submissions/${encodeURIComponent(id)}`);
+  // This page starts judging a queued submission right away, so show it as running
+  const startJudging = s.status === "queued";
+  if (startJudging) s.status = "judging";
   setTitle(`Submission ${s.id}`);
 
   const summary = `<div class="table-wrap"><table class="datatable">
@@ -626,10 +629,10 @@ async function submissionPage(id) {
       <td class="col-when hide-narrow">${formatWhen(s.createdAt)}</td>
     </tr></tbody></table></div>`;
 
-  const tests = s.tests.length
+  const tests = s.tests?.length
     ? `<div class="table-wrap"><table class="datatable">
         <thead><tr><th>Test</th><th>Verdict</th><th>Time</th><th>Memory</th></tr></thead>
-        <tbody>${s.tests.map(t => `<tr>
+        <tbody>${(s.tests || []).map(t => `<tr>
           <td>${esc(t.n)}</td>
           <td>${verdictHtml({ status: "done", verdict: t.verdict })}</td>
           <td class="col-mono">${esc(t.timeMs)} ms</td>
@@ -644,7 +647,18 @@ async function submissionPage(id) {
     box("Tests", tests, { flush: true, footer: s.checkerMsg ? `Checker: <code>${esc(s.checkerMsg)}</code>` : "" }) +
     box("Source code", `<pre class="source-code">${esc(s.code)}</pre>`, { flush: true });
   sidebar.innerHTML = await payAttentionBox();
-  if (s.status !== "done") pollTimer = setTimeout(route, 1000);
+  // A queued submission is judged by asking for it here (the request returns
+  // once the verdicts are in); one being judged elsewhere is polled
+  if (startJudging) {
+    const judgingId = s.id;
+    api(`/api/submissions/${encodeURIComponent(judgingId)}/judge`, { method: "POST", body: "{}" })
+      .catch(() => {})
+      .then(() => {
+        if (location.pathname === `/submission/${judgingId}`) route();
+      });
+  } else if (s.status !== "done") {
+    pollTimer = setTimeout(route, 1500);
+  }
 }
 
 async function adminPage() {
