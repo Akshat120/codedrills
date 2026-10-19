@@ -631,6 +631,22 @@ async function statusPage() {
   if (submissions.some(s => s.status !== "done")) pollTimer = setTimeout(route, 2000);
 }
 
+// Source code shown like a Codeforces listing (Google Code Prettify, the
+// highlighter Codeforces uses), same as CodeReflections.
+const PRETTIFY_LANG = { cpp17: "cpp" };
+function sourceListing(code, language) {
+  const escaped = esc(code || "");
+  let body = escaped;
+  if (window.PR && typeof window.PR.prettyPrintOne === "function") {
+    try {
+      body = window.PR.prettyPrintOne(escaped, PRETTIFY_LANG[language], false);
+    } catch (_) {
+      body = escaped;
+    }
+  }
+  return `<pre class="prettyprint cf-source">${body}</pre>`;
+}
+
 async function submissionPage(id) {
   const s = await api(`/api/submissions/${encodeURIComponent(id)}`);
   // This page starts judging a queued submission right away, so show it as running
@@ -664,9 +680,9 @@ async function submissionPage(id) {
   main.innerHTML =
     intro(`Submission ${esc(s.id)}`, "") +
     box("Summary", summary, { flush: true }) +
+    box("Source code", sourceListing(s.code, s.language)) +
     (s.compileOutput ? box("Compilation error", `<pre class="source-code">${esc(s.compileOutput)}</pre>`, { flush: true }) : "") +
-    box("Tests", tests, { flush: true, footer: s.checkerMsg ? `Checker: <code>${esc(s.checkerMsg)}</code>` : "" }) +
-    box("Source code", `<pre class="source-code">${esc(s.code)}</pre>`, { flush: true });
+    box("Tests", tests, { flush: true, footer: s.checkerMsg ? `Checker: <code>${esc(s.checkerMsg)}</code>` : "" });
   sidebar.innerHTML = await payAttentionBox();
   // A queued submission is judged by asking for it here (the request returns
   // once the verdicts are in); one being judged elsewhere is polled

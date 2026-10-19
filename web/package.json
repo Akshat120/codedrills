@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
+    "code-prettify": "^0.1.0",
     "express": "^5.1.0",
     "katex": "^0.16.22",
     "mongodb": "^6.21.0"

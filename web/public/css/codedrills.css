@@ -608,6 +608,67 @@ html.auth-pending body { visibility: hidden; }
 }
 .source-code { padding: 10px; white-space: pre; }
 
+/* Source code: Codeforces source listing, same as CodeReflections
+   (Google Code Prettify colours from codeforces.com prettify.css) */
+pre.prettyprint.cf-source {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid #888;
+  border-radius: 0;
+  background: #fff;
+  color: #000;
+  /* monospace fonts that have a real bold, so keywords/strings render bold */
+  font-family: Consolas, Menlo, "DejaVu Sans Mono", "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
+  scrollbar-width: thin;
+  scrollbar-color: #9aa3ad transparent;
+}
+pre.prettyprint.cf-source::-webkit-scrollbar { height: 8px; }
+pre.prettyprint.cf-source::-webkit-scrollbar-track { background: #f1f3f5; }
+pre.prettyprint.cf-source::-webkit-scrollbar-thumb { background: #9aa3ad; border-radius: 4px; }
+pre.prettyprint.cf-source::-webkit-scrollbar-thumb:hover { background: #6e7781; }
+.cf-source .pln { color: #000; }
+.cf-source .str { color: #080; font-weight: bold; }
+.cf-source .kwd { color: #008; font-weight: bold; }
+.cf-source .com { color: #800; font-weight: bold; }
+.cf-source .typ { color: #606; font-weight: bold; }
+.cf-source .lit { color: #066; }
+.cf-source .pun, .cf-source .opn, .cf-source .clo { color: #660; }
+.cf-source .tag { color: #008; font-weight: bold; }
+.cf-source .atn { color: #606; }
+.cf-source .atv { color: #080; font-weight: bold; }
+.cf-source .dec, .cf-source .var { color: #606; }
+.cf-source .fun { color: red; }
+
+/* Dark theme: same roles, colours readable on a dark background */
+[data-theme="dark"] pre.prettyprint.cf-source {
+  background: #1a1c1e;
+  border-color: #4f555a;
+  color: #e6edf3;
+  scrollbar-color: #5c636a transparent;
+}
+[data-theme="dark"] pre.prettyprint.cf-source::-webkit-scrollbar-track { background: #24272a; }
+[data-theme="dark"] pre.prettyprint.cf-source::-webkit-scrollbar-thumb { background: #5c636a; }
+[data-theme="dark"] .cf-source .pln { color: #e6edf3; }
+[data-theme="dark"] .cf-source .str { color: #7ee787; }
+[data-theme="dark"] .cf-source .kwd { color: #79b8ff; }
+[data-theme="dark"] .cf-source .com { color: #f28b82; }
+[data-theme="dark"] .cf-source .typ { color: #d2a8ff; }
+[data-theme="dark"] .cf-source .lit { color: #56d4dd; }
+[data-theme="dark"] .cf-source .pun,
+[data-theme="dark"] .cf-source .opn,
+[data-theme="dark"] .cf-source .clo { color: #d6cf8f; }
+[data-theme="dark"] .cf-source .tag { color: #79b8ff; }
+[data-theme="dark"] .cf-source .atn,
+[data-theme="dark"] .cf-source .dec,
+[data-theme="dark"] .cf-source .var { color: #d2a8ff; }
+[data-theme="dark"] .cf-source .atv { color: #7ee787; }
+[data-theme="dark"] .cf-source .fun { color: #ff7b72; }
+
 /* ==========================================================================
    Footer
    ========================================================================== */
