@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { authRoutes, requireAuth } from "./auth.js";
 import { problemRoutes } from "./routes/problems.js";
 import { submissionRoutes } from "./routes/submissions.js";
+import { languages } from "./data/languages.js";
 
 // The Express app, shared by the local server (src/server.js) and the
 // Cloudflare Worker (src/entry.cloudflare.js). On Cloudflare, static files and
@@ -70,6 +71,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/problems", requireAuth, problemRoutes);
 app.use("/api/submissions", requireAuth, submissionRoutes);
+app.get("/api/languages", requireAuth, (_req, res) => res.json({ languages }));
 app.get("/api/judge/status", requireAuth, (_req, res) => {
   res.json({ online: false, message: "Judge not connected yet (milestone 2)." });
 });

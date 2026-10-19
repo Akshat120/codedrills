@@ -87,6 +87,26 @@ function setTitle(title) {
   document.title = title ? `${title} · CodeDrills` : "CodeDrills";
 }
 
+// Languages come from the server (src/data/languages.js), asked for once
+let languagesRequest = null;
+function getLanguages() {
+  languagesRequest ||= api("/api/languages").then(d => d.languages);
+  return languagesRequest;
+}
+
+function languageOptions(langs) {
+  return langs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
+}
+
+function fileAccept(langs) {
+  return langs.flatMap(l => l.extensions).join(",");
+}
+
+function languageForFile(langs, name) {
+  const lower = name.toLowerCase();
+  return langs.find(l => l.extensions.some(ext => lower.endsWith(ext)));
+}
+
 function renderMath(el) {
   window.renderMathInElement?.(el, {
     delimiters: [
@@ -113,7 +133,7 @@ function submissionsTable(list, { compact = false } = {}) {
         <td class="col-when hide-narrow">${formatWhen(s.createdAt)}</td>
         <td class="hide-narrow"><span class="user-handle">akshat</span></td>
         <td class="col-left"><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
-        <td class="hide-narrow">${esc(s.language)}</td>
+        <td class="hide-narrow">${esc(s.languageName)}</td>
         <td>${verdictHtml(s)}</td>
         <td class="col-mono">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
         <td class="col-mono hide-narrow">${s.status === "done" ? `${esc(s.memoryKb)} KB` : ""}</td>
@@ -170,7 +190,7 @@ async function homePage() {
       <div class="post-meta">By <span class="user-handle">akshat</span></div>
       <div class="post-content-wrap">
         <p>A private practice judge with an original problem bank. Pick a problem from the
-        <a href="/problemset" data-link>problemset</a>, submit GNU C++17, and get a verdict on every test.</p>
+        <a href="/problemset" data-link>problemset</a>, submit a solution, and get a verdict on every test.</p>
         <p>Every problem's tests are checked before publishing: inputs are validated, the reference
         solution is stress-tested against a brute force, and its running time is measured on the judge.</p>
       </div>
@@ -239,9 +259,10 @@ async function problemsetPage() {
 }
 
 async function problemPage(slug) {
-  const [p, subs] = await Promise.all([
+  const [p, subs, langs] = await Promise.all([
     api(`/api/problems/${encodeURIComponent(slug)}`),
-    api(`/api/submissions?problem=${encodeURIComponent(slug)}`)
+    api(`/api/submissions?problem=${encodeURIComponent(slug)}`),
+    getLanguages()
   ]);
   setTitle(`${p.code} ${p.title}`);
   const letter = p.code.replace(/^\d+/, "");
@@ -296,11 +317,11 @@ async function problemPage(slug) {
       <form id="quick-submit" class="cf-filter-form">
         <div>
           <label class="cf-filter-label" for="quick-lang">Language:</label>
-          <select id="quick-lang" name="language" class="cf-select"><option value="cpp17">GNU C++17</option></select>
+          <select id="quick-lang" name="language" class="cf-select">${languageOptions(langs)}</select>
         </div>
         <div>
           <label class="cf-filter-label" for="quick-file">Choose file:</label>
-          <input id="quick-file" type="file" name="file" accept=".cpp,.cc,.cxx,.h">
+          <input id="quick-file" type="file" name="file" accept="${fileAccept(langs)}">
         </div>
         <div class="cf-filter-actions"><button class="btn" type="submit">Submit</button></div>
         <div id="quick-msg"></div>
@@ -308,12 +329,16 @@ async function problemPage(slug) {
     box("Last submissions", submissionsTable(subs.submissions.slice(0, 5), { compact: true }), { flush: true }) +
     box("Problem tags", `${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}<span class="tag ${ratingClass(p.difficulty)}" title="Difficulty">*${esc(p.difficulty)}</span>`);
 
+  document.getElementById("quick-file").addEventListener("change", e => {
+    const lang = e.target.files[0] && languageForFile(langs, e.target.files[0].name);
+    if (lang) document.getElementById("quick-lang").value = lang.id;
+  });
   document.getElementById("quick-submit").addEventListener("submit", async e => {
     e.preventDefault();
     const msg = document.getElementById("quick-msg");
     const file = e.target.file.files[0];
     if (!file) return showMessage(msg, "Choose a file first.", true);
-    await submitCode({ problemSlug: slug, language: "cpp17", code: await file.text() }, msg);
+    await submitCode({ problemSlug: slug, language: e.target.language.value, code: await file.text() }, msg);
   });
 }
 
@@ -334,10 +359,10 @@ async function submitCode(payload, msgEl) {
 
 async function submitPage() {
   setTitle("Submit");
-  const { problems } = await api("/api/problems");
+  const [{ problems }, langs] = await Promise.all([api("/api/problems"), getLanguages()]);
   const preselect = new URLSearchParams(location.search).get("problem");
   main.innerHTML =
-    intro("Submit solution", "GNU C++17 only for now. Paste the code or choose a file.") +
+    intro("Submit solution", `Paste the code or choose a file. Languages: ${esc(langs.map(l => l.name).join(", "))}.`) +
     box("Submit", `
       <form id="submit-form" class="submit-grid">
         <label for="sub-problem">Problem:</label>
@@ -345,11 +370,11 @@ async function submitPage() {
           ${problems.map(p => `<option value="${esc(p.slug)}"${p.slug === preselect ? " selected" : ""}>${esc(p.code)} - ${esc(p.title)}</option>`).join("")}
         </select>
         <label for="sub-lang">Language:</label>
-        <select id="sub-lang" name="language" class="cf-select"><option value="cpp17">GNU C++17</option></select>
+        <select id="sub-lang" name="language" class="cf-select">${languageOptions(langs)}</select>
         <label class="full" for="sub-code" style="text-align:left">Source code:</label>
         <div class="full"><textarea id="sub-code" class="code-editor" name="code" spellcheck="false"></textarea></div>
         <label for="sub-file">Or choose file:</label>
-        <input id="sub-file" type="file" accept=".cpp,.cc,.cxx,.h">
+        <input id="sub-file" type="file" accept="${fileAccept(langs)}">
         <div class="full action-buttons"><button class="btn" type="submit">Submit</button></div>
         <div class="full" id="submit-msg"></div>
       </form>`);
@@ -364,7 +389,10 @@ async function submitPage() {
   });
   document.getElementById("sub-file").addEventListener("change", async e => {
     const file = e.target.files[0];
-    if (file) textarea.value = await file.text();
+    if (!file) return;
+    textarea.value = await file.text();
+    const lang = languageForFile(langs, file.name);
+    if (lang) document.getElementById("sub-lang").value = lang.id;
   });
   document.getElementById("submit-form").addEventListener("submit", async e => {
     e.preventDefault();
@@ -396,7 +424,7 @@ async function submissionPage(id) {
     <tbody><tr>
       <td>${esc(s.id)}</td>
       <td><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
-      <td class="hide-narrow">${esc(s.language)}</td>
+      <td class="hide-narrow">${esc(s.languageName)}</td>
       <td>${verdictHtml(s)}</td>
       <td class="col-mono">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
       <td class="col-mono hide-narrow">${s.status === "done" ? `${esc(s.memoryKb)} KB` : ""}</td>
