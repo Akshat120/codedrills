@@ -519,15 +519,23 @@ html.auth-pending body { visibility: hidden; }
 /* Problemset: fixed column widths, so they don't change from page to page
    with the length of the titles and tags on it. Long names wrap instead. */
 .problemset-table { table-layout: fixed; }
-.problemset-table .w-id { width: 70px; }
+.problemset-table .w-id { width: 80px; }
+.problemset-table .w-source { width: 150px; }
 .problemset-table .w-difficulty { width: 100px; }
 .problemset-table .w-solved { width: 80px; }
 .problemset-table td { overflow-wrap: anywhere; }
+.problemset-table .col-source { font-size: 12px; }
+.problemset-table .col-id { overflow-wrap: normal; white-space: nowrap; }
+.inspired-by { margin-top: 6px; }
 .label-short { display: none; }
 @media (max-width: 600px) {
   .label-long { display: none; }
   .label-short { display: inline; }
-  .problemset-table .w-id { width: 48px; }
+  .problemset-table .w-id { width: 72px; }
+  /* Source column collapses (its cells stay, so the other columns keep
+     their places) */
+  .problemset-table .w-source { width: 0; }
+  .problemset-table .col-source { padding: 0; border: 0; font-size: 0; overflow: hidden; }
   .problemset-table .w-difficulty { width: 72px; }
   .problemset-table .w-solved { width: 58px; }
   .problemset-table td, .problemset-table th { padding-left: 6px; padding-right: 6px; }

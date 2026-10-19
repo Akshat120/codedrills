@@ -78,21 +78,23 @@ export function runWithRequestClient(res, handle) {
 // Every index is chosen for a query in src/repositories (see the comments
 // there); `npm run db:explain` shows the plans they produce.
 //
-// problems: ordered by `order` (set number × 100 + letter), filtered by
-// published (equality), tag (equality, multikey) and difficulty (range). The
-// key order follows Equality → Sort → Range, so the sort is read from the
-// index (no in-memory SORT) and the difficulty range is checked on index keys.
+// problems (_id is the code, e.g. CD0017): listed by `number`, filtered by
+// published (equality), tag or source platform (equality) and difficulty
+// (range). Key order follows Equality → Sort → Range, so the sort comes from
+// the index (no in-memory SORT) and the difficulty range is checked on index
+// keys.
 export const INDEXES = {
   problems: [
-    { key: { published: 1, order: 1, difficulty: 1 }, name: "list" },
-    { key: { published: 1, tags: 1, order: 1, difficulty: 1 }, name: "list_by_tag" },
+    { key: { published: 1, number: 1, difficulty: 1 }, name: "list" },
+    { key: { published: 1, tags: 1, number: 1, difficulty: 1 }, name: "list_by_tag" },
+    { key: { published: 1, sourcePlatform: 1, number: 1, difficulty: 1 }, name: "list_by_source" },
     { key: { published: 1, titleWords: 1 }, name: "title_word_prefix" },
-    { key: { code: 1 }, name: "code", unique: true }
+    { key: { "source.id": 1 }, name: "source_id", sparse: true }
   ],
   submissions: [
     { key: { id: 1 }, name: "id", unique: true },
     { key: { createdAt: -1 }, name: "newest" },
-    { key: { problemSlug: 1, createdAt: -1 }, name: "by_problem_newest" }
+    { key: { problemCode: 1, createdAt: -1 }, name: "by_problem_newest" }
   ]
 };
 

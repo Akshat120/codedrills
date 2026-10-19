@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { languages } from "../data/languages.js";
+import { normalizeCode } from "../data/platforms.js";
 import { collections, dbReady } from "../db/database.js";
 import { getSubmission, listSubmissions } from "../repositories/submissionRepository.js";
 
@@ -8,8 +9,9 @@ export const submissionRoutes = Router();
 const MAX_CODE_BYTES = 64 * 1024;
 
 submissionRoutes.get("/", async (req, res) => {
-  const problem = String(req.query.problem || "");
-  res.json({ submissions: await listSubmissions({ problemSlug: problem || undefined, limit: problem ? 10 : 50 }) });
+  const problemCode = req.query.problem ? normalizeCode(req.query.problem) : undefined;
+  if (req.query.problem && !problemCode) return res.json({ submissions: [] });
+  res.json({ submissions: await listSubmissions({ problemCode, limit: problemCode ? 10 : 50 }) });
 });
 
 submissionRoutes.get("/:id", async (req, res) => {
@@ -22,10 +24,11 @@ submissionRoutes.get("/:id", async (req, res) => {
 // Validates like the real endpoint will, but nothing is queued yet: the judge
 // arrives in milestone 2.
 submissionRoutes.post("/", async (req, res) => {
-  const { problemSlug, language, code } = req.body || {};
+  const { problemCode, language, code } = req.body || {};
+  const problemId = normalizeCode(problemCode);
   await dbReady();
-  const exists = typeof problemSlug === "string" &&
-    (await collections.problems.countDocuments({ _id: problemSlug, published: true }, { limit: 1 }));
+  const exists = problemId &&
+    (await collections.problems.countDocuments({ _id: problemId, published: true }, { limit: 1 }));
   if (!exists) return res.status(400).json({ error: "Choose a problem." });
   if (!languages.some(l => l.id === language)) return res.status(400).json({ error: "Choose a supported language." });
   if (typeof code !== "string" || !code.trim()) return res.status(400).json({ error: "The source code is empty." });
