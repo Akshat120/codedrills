@@ -98,8 +98,15 @@ function languageOptions(langs) {
   return langs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
 }
 
-function fileAccept(langs) {
-  return langs.flatMap(l => l.extensions).join(",");
+// No accept filter on the file inputs: macOS greys out .cpp files when it
+// doesn't map the extension to a known file type. Files are checked here.
+const MAX_FILE_BYTES = 64 * 1024;
+function fileProblem(langs, file) {
+  if (!languageForFile(langs, file.name)) {
+    return `Unsupported file type. Use ${langs.flatMap(l => l.extensions).join(", ")}.`;
+  }
+  if (file.size > MAX_FILE_BYTES) return "The file is larger than 64 KB.";
+  return null;
 }
 
 function languageForFile(langs, name) {
@@ -470,7 +477,7 @@ async function problemPage(code) {
         <select id="quick-lang" name="language">${languageOptions(langs)}</select>
         <label for="quick-file">Choose file:</label>
         <div class="file-picker">
-          <input id="quick-file" type="file" name="file" accept="${fileAccept(langs)}" class="file-picker-input">
+          <input id="quick-file" type="file" name="file" class="file-picker-input">
           <label for="quick-file" class="file-picker-button">Choose file</label>
           <span class="file-picker-name" id="quick-file-name">No file chosen</span>
         </div>
@@ -481,15 +488,22 @@ async function problemPage(code) {
     box("Problem tags", `${p.tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}<span class="tag ${ratingClass(p.difficulty)}" title="Difficulty">*${esc(p.difficulty)}</span>`);
 
   document.getElementById("quick-file").addEventListener("change", e => {
-    document.getElementById("quick-file-name").textContent = e.target.files[0]?.name || "No file chosen";
-    const lang = e.target.files[0] && languageForFile(langs, e.target.files[0].name);
-    if (lang) document.getElementById("quick-lang").value = lang.id;
+    const file = e.target.files[0];
+    const msg = document.getElementById("quick-msg");
+    msg.innerHTML = "";
+    document.getElementById("quick-file-name").textContent = file?.name || "No file chosen";
+    if (!file) return;
+    const problem = fileProblem(langs, file);
+    if (problem) return showMessage(msg, problem, true);
+    document.getElementById("quick-lang").value = languageForFile(langs, file.name).id;
   });
   document.getElementById("quick-submit").addEventListener("submit", async e => {
     e.preventDefault();
     const msg = document.getElementById("quick-msg");
     const file = e.target.file.files[0];
     if (!file) return showMessage(msg, "Choose a file first.", true);
+    const problem = fileProblem(langs, file);
+    if (problem) return showMessage(msg, problem, true);
     await submitCode({ problemCode: p.code, language: e.target.language.value, code: await file.text() }, msg);
   });
 }
@@ -528,7 +542,7 @@ async function submitPage() {
         <label class="full" for="sub-code" style="text-align:left">Source code:</label>
         <div class="full"><textarea id="sub-code" class="code-editor" name="code" spellcheck="false"></textarea></div>
         <label for="sub-file">Or choose file:</label>
-        <input id="sub-file" type="file" accept="${fileAccept(langs)}">
+        <input id="sub-file" type="file">
         <div class="full action-buttons"><button class="btn" type="submit">Submit</button></div>
         <div class="full" id="submit-msg"></div>
       </form>`);
@@ -580,6 +594,12 @@ async function submitPage() {
   document.getElementById("sub-file").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
+    const problem = fileProblem(langs, file);
+    if (problem) {
+      e.target.value = "";
+      return showMessage(document.getElementById("submit-msg"), problem, true);
+    }
+    document.getElementById("submit-msg").innerHTML = "";
     textarea.value = await file.text();
     const lang = languageForFile(langs, file.name);
     if (lang) document.getElementById("sub-lang").value = lang.id;
