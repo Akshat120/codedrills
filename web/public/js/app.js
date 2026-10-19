@@ -230,80 +230,67 @@ async function homePage() {
   sidebar.innerHTML = (await payAttentionBox()) + (await progressBox());
 }
 
-async function problemsetPage() {
-  setTitle("Problemset");
-  const params = new URLSearchParams(location.search);
-  const progressRequest = api("/api/problems/progress");
-  const data = await api(`/api/problems?${params}`);
+// The problemset is drawn once (the shell), then each page change, filter or
+// back/forward only swaps the rows, the page links and the count in place,
+// so the layout doesn't jump. While a page is being fetched the current rows
+// fade and the caption says so; a response that arrives after a newer request
+// was made is dropped.
+let problemsetRequestId = 0;
 
-  // The server shows the last page when asked for one past the end
-  if (params.get("page") && Number(params.get("page")) !== data.page) {
-    params.set("page", data.page);
-    history.replaceState(null, "", `/problemset?${params}`);
-  }
-  const pageUrl = page => {
-    const next = new URLSearchParams(params);
-    if (page > 1) next.set("page", page);
-    else next.delete("page");
-    return `/problemset${next.size ? `?${next}` : ""}`;
-  };
-  const first = (data.page - 1) * data.perPage + 1;
-  const last = first + data.problems.length - 1;
+const PS_LOADING_DELAY_MS = 120; // fast responses swap without a flash
 
-  const rows = data.problems.map(p => `
-    <tr class="${p.status === "accepted" ? "accepted-problem" : p.status === "attempted" ? "rejected-problem" : ""}">
-      <td class="col-id"><a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.code)}</a></td>
-      <td class="col-left">
-        <div class="problem-name">
-          <a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.title)}</a>
-          <div class="problem-tags">${p.tags.map(t => `<a href="/problemset?tag=${encodeURIComponent(t)}" data-link>${esc(t)}</a>`).join(", ")}</div>
-        </div>
-      </td>
-      <td><span class="${ratingClass(p.difficulty)}">${esc(p.difficulty)}</span></td>
-      <td>${p.acceptedCount ? `<span title="My accepted submissions">✓ x${esc(p.acceptedCount)}</span>` : ""}</td>
-    </tr>`).join("");
-
+function problemsetShell(params) {
   main.innerHTML =
     intro("Problemset", "Original problems. Green rows are solved, red rows were attempted.") +
-    box(`Problems (${data.total})`, `
-      <div class="table-wrap"><table class="datatable problemset-table">
-        <colgroup><col class="w-id"><col><col class="w-difficulty"><col class="w-solved"></colgroup>
-        <thead><tr><th>#</th><th class="col-left">Name</th><th><span class="label-long">Difficulty</span><span class="label-short" title="Difficulty">Diff.</span></th><th><span class="label-long">Solved</span><span class="label-short" title="Solved">AC</span></th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="4" class="muted">No problems match.</td></tr>`}</tbody>
-      </table></div>
-      ${buildPagination(data.page, data.totalPages, pageUrl)}
-      ${data.total ? `<div class="pagination-count">Showing ${first}–${last} of ${data.total}</div>` : ""}`, { flush: true });
+    `<section class="roundbox" id="problemset-box">
+      <div class="caption">Problems <span id="ps-total"></span>
+        <span class="fetching" id="ps-fetching" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span>Fetching problems…</span>
+      </div>
+      <div class="roundbox-body flush">
+        <div class="table-wrap"><table class="datatable problemset-table">
+          <colgroup><col class="w-id"><col><col class="w-difficulty"><col class="w-solved"></colgroup>
+          <thead><tr><th>#</th><th class="col-left">Name</th><th><span class="label-long">Difficulty</span><span class="label-short" title="Difficulty">Diff.</span></th><th><span class="label-long">Solved</span><span class="label-short" title="Solved">AC</span></th></tr></thead>
+          <tbody id="ps-rows"><tr class="loading-row"><td colspan="4"><span class="spinner" aria-hidden="true"></span>Fetching problems…</td></tr></tbody>
+        </table></div>
+        <div id="ps-pager"></div>
+      </div>
+    </section>`;
 
-  const tagOptions = data.tags.map(t => `<option value="${esc(t)}"${params.get("tag") === t ? " selected" : ""}>${esc(t)}</option>`).join("");
   sidebar.innerHTML = box("Filter Problems", `
     <form class="cf-filter-form" id="filter-form">
       <div>
         <label class="cf-filter-label" for="filter-q">Search problem:</label>
-        <input type="text" id="filter-q" name="q" class="cf-input" placeholder="Name or # (e.g. 1A)" value="${esc(params.get("q") || "")}" autocomplete="off">
+        <input type="text" id="filter-q" name="q" class="cf-input" placeholder="Name or # (e.g. 1A)" autocomplete="off">
       </div>
       <div>
         <label class="cf-filter-label" for="filter-tag">Tag:</label>
-        <select id="filter-tag" name="tag" class="cf-select"><option value="">All tags (${data.tags.length})</option>${tagOptions}</select>
+        <select id="filter-tag" name="tag" class="cf-select"><option value="">All tags</option></select>
       </div>
       <div>
         <label class="cf-filter-label">Difficulty:</label>
         <div class="cf-difficulty-inputs">
-          <input type="number" name="min" class="cf-input" min="800" max="3500" step="100" placeholder="800" value="${esc(params.get("min") || "")}" aria-label="Minimum difficulty">
+          <input type="number" name="min" class="cf-input" min="800" max="3500" step="100" placeholder="800" aria-label="Minimum difficulty">
           <span>—</span>
-          <input type="number" name="max" class="cf-input" min="800" max="3500" step="100" placeholder="3500" value="${esc(params.get("max") || "")}" aria-label="Maximum difficulty">
+          <input type="number" name="max" class="cf-input" min="800" max="3500" step="100" placeholder="3500" aria-label="Maximum difficulty">
         </div>
       </div>
       <div>
         <label class="cf-filter-label" for="filter-per-page">Per page:</label>
         <select id="filter-per-page" name="perPage" class="cf-select">
-          ${[10, 25, 50, 100].map(n => `<option value="${n}"${n === data.perPage ? " selected" : ""}>${n} problems</option>`).join("")}
+          ${[10, 25, 50, 100].map(n => `<option value="${n}">${n} problems</option>`).join("")}
         </select>
       </div>
       <div class="cf-filter-actions">
         <a class="btn" href="/problemset" data-link>Reset</a>
         <button class="btn" type="submit">Apply</button>
       </div>
-    </form>`) + (await progressBox(progressRequest));
+    </form>`) + `<div id="ps-progress"></div>`;
+
+  // The progress box doesn't depend on the page, so it loads once, on its own
+  progressBox().then(html => {
+    const slot = document.getElementById("ps-progress");
+    if (slot) slot.innerHTML = html;
+  }).catch(() => {});
 
   // Applying filters starts again from page 1; the default page size stays
   // out of the URL
@@ -319,6 +306,79 @@ async function problemsetPage() {
     applyFilters();
   });
   document.getElementById("filter-per-page").addEventListener("change", applyFilters);
+  syncFilterForm(params, null);
+}
+
+// Puts the URL's filters into the form (needed for back/forward and links)
+function syncFilterForm(params, data) {
+  const form = document.getElementById("filter-form");
+  if (!form) return;
+  const tagSelect = form.elements.tag;
+  if (data && tagSelect.options.length !== data.tags.length + 1) {
+    tagSelect.innerHTML = `<option value="">All tags (${data.tags.length})</option>` +
+      data.tags.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  }
+  form.elements.q.value = params.get("q") || "";
+  tagSelect.value = params.get("tag") || "";
+  form.elements.min.value = params.get("min") || "";
+  form.elements.max.value = params.get("max") || "";
+  form.elements.perPage.value = String(data?.perPage || params.get("perPage") || 25);
+}
+
+function problemRows(problems) {
+  if (!problems.length) return `<tr><td colspan="4" class="muted">No problems match.</td></tr>`;
+  return problems.map(p => `
+    <tr class="${p.status === "accepted" ? "accepted-problem" : p.status === "attempted" ? "rejected-problem" : ""}">
+      <td class="col-id"><a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.code)}</a></td>
+      <td class="col-left">
+        <div class="problem-name">
+          <a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.title)}</a>
+          <div class="problem-tags">${p.tags.map(t => `<a href="/problemset?tag=${encodeURIComponent(t)}" data-link>${esc(t)}</a>`).join(", ")}</div>
+        </div>
+      </td>
+      <td><span class="${ratingClass(p.difficulty)}">${esc(p.difficulty)}</span></td>
+      <td>${p.acceptedCount ? `<span title="My accepted submissions">✓ x${esc(p.acceptedCount)}</span>` : ""}</td>
+    </tr>`).join("");
+}
+
+async function problemsetPage() {
+  setTitle("Problemset");
+  const params = new URLSearchParams(location.search);
+  const requestId = ++problemsetRequestId;
+  if (!document.getElementById("problemset-box")) problemsetShell(params);
+
+  const psBox = document.getElementById("problemset-box");
+  const loadingTimer = setTimeout(() => psBox.classList.add("is-loading"), PS_LOADING_DELAY_MS);
+  let data;
+  try {
+    data = await api(`/api/problems?${params}`);
+  } finally {
+    clearTimeout(loadingTimer);
+    if (requestId === problemsetRequestId) psBox.classList.remove("is-loading");
+  }
+  // A newer page was asked for meanwhile, or the user left the problemset
+  if (requestId !== problemsetRequestId || !document.body.contains(psBox)) return;
+
+  // The server shows the last page when asked for one past the end
+  if (params.get("page") && Number(params.get("page")) !== data.page) {
+    params.set("page", data.page);
+    history.replaceState(null, "", `/problemset?${params}`);
+  }
+  const pageUrl = page => {
+    const next = new URLSearchParams(params);
+    if (page > 1) next.set("page", page);
+    else next.delete("page");
+    return `/problemset${next.size ? `?${next}` : ""}`;
+  };
+  const first = (data.page - 1) * data.perPage + 1;
+  const last = first + data.problems.length - 1;
+
+  document.getElementById("ps-total").textContent = `(${data.total})`;
+  document.getElementById("ps-rows").innerHTML = problemRows(data.problems);
+  document.getElementById("ps-pager").innerHTML =
+    buildPagination(data.page, data.totalPages, pageUrl) +
+    (data.total ? `<div class="pagination-count">Showing ${first}–${last} of ${data.total}</div>` : "");
+  syncFilterForm(params, data);
 }
 
 async function problemPage(slug) {
