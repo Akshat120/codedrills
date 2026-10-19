@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+
+# Secrets and deploy state
+.env
+.env.*
+!.env.example
+.dev.vars*
+.wrangler/
+
+# Vendor files copied into public/ at build time
+web/public/vendor/
+
+# Local working copies
+.claude/
