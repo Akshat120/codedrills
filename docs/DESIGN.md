@@ -11,7 +11,7 @@ work from MongoDB (not Judge0).
 
 > **Update (milestone 2):** to keep hosting at $0, the judge runs on **AWS
 > Lambda** (always-free allowance) instead of a VPS, and the web app calls it
-> directly (signed function URL) instead of the judge pulling from MongoDB.
+> directly (signed Lambda Invoke API request) instead of the judge pulling from MongoDB.
 > The function has no network access, so it can't leak code or tests. Details:
 > `judge/README.md`. Sections below that describe the VPS judge are kept for
 > reference.

@@ -17,7 +17,7 @@ AWS Lambda. Only the sample problem CD0001 has tests so far.
 | Part | Where | State |
 |---|---|---|
 | Web app (Express 5 on Cloudflare Workers + static SPA) | `web/` | Sample data in MongoDB |
-| Judge (AWS Lambda; Docker locally) | `judge/` | Works locally; AWS deployment next |
+| Judge (AWS Lambda; Docker locally) | `judge/` | Works locally; AWS packaging + setup guide in `judge/aws/` |
 | Problem pipeline (testlib, GitHub Actions) | `pipeline/` | Not started |
 
 ## Run the web app locally

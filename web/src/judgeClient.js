@@ -1,13 +1,15 @@
 import { AwsClient } from "aws4fetch";
 
-// Sends one submission to the judge and returns its verdicts.
+// Sends one submission to the judge and returns its verdicts, through
+// Lambda's Invoke API (POST .../2015-03-31/functions/<name>/invocations).
 //
-// - Locally: the judge container (docker compose) at JUDGE_URL, defaulting to
-//   its Lambda emulator address. No signing.
-// - On Cloudflare: JUDGE_URL is the Lambda function URL, which only accepts
-//   requests signed with AWS credentials (SigV4). JUDGE_AWS_ACCESS_KEY_ID /
-//   JUDGE_AWS_SECRET_ACCESS_KEY belong to an IAM user allowed only to call
-//   that one function; JUDGE_AWS_REGION is its region.
+// - Locally: the judge container (docker compose), whose Lambda emulator
+//   answers the same API at LOCAL_JUDGE_URL. No signing.
+// - On AWS: JUDGE_URL is the function's Invoke URL, e.g.
+//   https://lambda.ap-south-1.amazonaws.com/2015-03-31/functions/codedrills-judge/invocations
+//   Requests are signed (SigV4) with JUDGE_AWS_ACCESS_KEY_ID /
+//   JUDGE_AWS_SECRET_ACCESS_KEY, the keys of an IAM user allowed only to
+//   invoke that one function; JUDGE_AWS_REGION is its region.
 const LOCAL_JUDGE_URL = "http://127.0.0.1:9001/2015-03-31/functions/function/invocations";
 const TIMEOUT_MS = 150 * 1000; // the function's own timeout is 120 s
 
@@ -45,6 +47,12 @@ export async function callJudge(job, { timeoutMs = TIMEOUT_MS } = {}) {
   };
   const res = process.env.JUDGE_AWS_ACCESS_KEY_ID ? await awsClient().fetch(url, init) : await fetch(url, init);
   if (!res.ok) throw new Error(`The judge answered ${res.status}.`);
+  // The function itself failed (crashed, timed out): Lambda answers 200 with
+  // this header and the error as the body
+  if (res.headers.get("x-amz-function-error")) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(`The judge failed: ${body.errorType || "error"} ${body.errorMessage || ""}`.trim());
+  }
   const result = await res.json();
   if (!result || typeof result.verdict !== "string") throw new Error("The judge sent an unexpected reply.");
   return result;

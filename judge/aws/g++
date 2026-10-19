@@ -1,0 +1,8 @@
+#!/bin/sh
+# g++ from the compiler layer. Lambda unpacks the layer at /opt; the compiler
+# lives in /opt/sysroot with its own headers, libraries, assembler and linker.
+# The judge uses this when it exists (src/languages.mjs).
+SYSROOT=/opt/sysroot
+export PATH="$SYSROOT/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$SYSROOT/usr/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$SYSROOT/usr/bin/g++" --sysroot="$SYSROOT" "$@"

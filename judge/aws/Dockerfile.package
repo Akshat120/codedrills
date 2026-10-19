@@ -1,0 +1,56 @@
+# Builds the two zips uploaded to AWS Lambda (see judge/aws/SETUP.md):
+#
+#   dist/compiler-layer.zip  the C++ compiler, unpacked by Lambda at /opt
+#   dist/judge-function.zip  judge code, runner and problem tests (/var/task)
+#
+# Built on AWS's own Node.js 24 Lambda image, so everything is compiled for the
+# exact system the function runs on (Amazon Linux 2023, arm64). Run through
+# judge/aws/build.sh.
+FROM public.ecr.aws/lambda/nodejs:24 AS build
+
+# Install the compiler, remembering which packages it added: only those go in
+# the layer (the rest is already part of Lambda's runtime)
+RUN rpm -qa --qf '%{NAME}\n' | sort > /tmp/before.txt \
+ && dnf install -y --setopt=install_weak_deps=0 gcc-c++ glibc-static libstdc++-static \
+ && rpm -qa --qf '%{NAME}\n' | sort > /tmp/after.txt \
+ && dnf install -y zip tar findutils file \
+ && dnf clean all
+
+# The layer: the compiler's files under /opt/sysroot, as they are installed
+# under / here. Only what compiling and statically linking C++ needs, so the
+# zip stays under Lambda's 50 MB direct-upload limit: no docs, translations,
+# build tools (make, pkgconf, rpm macros), C compiler, LTO or sanitizers.
+RUN set -eu; mkdir -p /layer/sysroot /layer/bin \
+ && comm -13 /tmp/before.txt /tmp/after.txt \
+    | grep -Ev '^(glibc-gconv-extra|make|guile.*|gc|libtool-ltdl|zip|unzip|pkgconf.*|libpkgconf|.*-srpm-macros|amazon-rpm-config|annobin.*|gcc-plugin-annobin|elfutils.*)$' > /tmp/added.txt \
+ && xargs rpm -ql < /tmp/added.txt | sort -u \
+    | grep -Ev '^/usr/(share|src)/' \
+    | while read -r f; do if [ -f "$f" ] || [ -L "$f" ]; then printf '%s\n' "${f#/}"; fi; done > /tmp/files.txt \
+ && tar -C / -cf - -T /tmp/files.txt | tar -C /layer/sysroot -xf - \
+ && cd /layer/sysroot \
+ && find usr/bin -mindepth 1 \( -name g++ -o -name as -o -name ld.bfd \) -prune -o -exec rm -f {} + \
+ && ln -s ld.bfd usr/bin/ld \
+ && rm -rf usr/libexec/gcc/*/*/cc1 usr/libexec/gcc/*/*/lto1 usr/libexec/gcc/*/*/lto-wrapper usr/libexec/gcc/*/*/plugin \
+           usr/lib/gcc/*/*/plugin usr/lib64/libgprofng* usr/lib64/gprofng usr/lib64/bfd-plugins \
+ && mv usr/lib/gcc/*/*/libisl.so* usr/lib64/ \
+ && find usr/lib/gcc -name '*.so*' -delete \
+ && find . -type f -exec sh -c 'file -b "$1" | grep -q "^ELF" && strip --strip-unneeded "$1" 2>/dev/null || true' _ {} \;
+COPY aws/g++ /layer/bin/g++
+RUN chmod 755 /layer/bin/g++ \
+ && cd /layer && zip -qry9 /tmp/compiler-layer.zip . \
+ && cat /tmp/added.txt && du -sh /layer && ls -l /tmp/compiler-layer.zip
+
+# The function: judge code, the runner and each problem's generated tests
+# (not the reference solutions or test generators)
+WORKDIR /function
+COPY runner/runner.c /tmp/runner.c
+RUN mkdir -p bin && gcc -O2 -Wall -Wextra -o bin/runner /tmp/runner.c && strip bin/runner
+COPY src/ src/
+COPY problems/ /tmp/problems/
+RUN set -eu; cd /tmp && for f in problems/*/make-tests.mjs; do node "$f"; done \
+ && for d in problems/*/; do mkdir -p "/function/$d" && cp -r "$d/problem.json" "$d/tests" "/function/$d"; done \
+ && cd /function && chmod -R a+rX . && chmod 755 bin/runner \
+ && zip -qry9 /tmp/judge-function.zip . && ls -l /tmp/judge-function.zip
+
+FROM scratch
+COPY --from=build /tmp/compiler-layer.zip /tmp/judge-function.zip /

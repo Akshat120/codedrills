@@ -1,9 +1,9 @@
 import { judge } from "./judge.mjs";
 
-// AWS Lambda entry point. Called two ways:
-// - through the function URL (production): an HTTP-shaped event whose body is
-//   the job; the URL only accepts requests signed by the Worker's IAM user
-// - invoked directly (local Docker, `aws lambda invoke`): the event is the job
+// AWS Lambda entry point. Normally invoked directly (the web app through the
+// Invoke API, `aws lambda invoke`, the local Docker emulator): the event is
+// the job. Also accepts a function URL request (an HTTP-shaped event whose
+// body is the job), in case one is added later.
 //
 // Job: { submissionId, language, code, problem: { code, timeLimitMs, memoryLimitMb } }
 // Logs only ids, verdicts and timings, never the source code.

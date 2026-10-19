@@ -17,11 +17,12 @@ Judge (Lambda) → compile, run tests, check → verdicts → web app saves them
 |---|---|
 | `runner/runner.c` | Runs one program with CPU time, wall time, memory, output and process limits, and reports the result as JSON |
 | `src/judge.mjs` | Compile, run each test (stop at the first failure), token checker, verdicts |
-| `src/index.mjs` | Lambda handler: accepts a direct invocation or a function URL request |
+| `src/index.mjs` | Lambda handler: the event is the job (also accepts a function URL request) |
 | `src/languages.mjs` | Compile/run commands per language (`cpp17`: `g++ -std=gnu++17 -O2 -static`) |
 | `problems/<code>/` | Each problem's test package: `problem.json` + `tests/*.in`, `*.ans` (tests are generated, not committed) |
 | `test/verdicts.mjs` | Checks the judge gives AC, WA, TLE, MLE, RE and CE for typical submissions |
-| `Dockerfile` | AWS's `nodejs:24` Lambda image + g++ + the runner + generated tests |
+| `Dockerfile` | Local judge: AWS's `nodejs:24` Lambda image + g++ + the runner + generated tests |
+| `aws/` | Packaging for AWS Lambda (`build.sh`) and the step-by-step setup (`SETUP.md`) |
 
 ## Limits on every test
 
@@ -55,11 +56,27 @@ calls it at `http://127.0.0.1:9001/2015-03-31/functions/function/invocations`.
 
 ## On AWS
 
-Deployed as a zip (judge code, runner, tests) with the compiler in a Lambda
-layer, arm64, 2048 MB memory, 120 s timeout, 512 MB `/tmp`. The Worker calls
-it through a function URL that accepts only requests signed by an IAM user
-allowed to invoke this one function. Setting it up step by step is in
-`judge/aws/` (coming next).
+Runs as the Lambda function `codedrills-judge` (Node.js 24, arm64, 2048 MB,
+2 min timeout, 512 MB `/tmp`) with the compiler in the layer `codedrills-gxx`.
+Build both zips with:
+
+```bash
+judge/aws/build.sh
+```
+
+| Zip | Contents | Size |
+|---|---|---|
+| `dist/compiler-layer.zip` | g++ 11, binutils, C/C++ headers and static libraries under `/opt/sysroot`, and the `/opt/bin/g++` wrapper | ~25 MB (85 MB unpacked) |
+| `dist/judge-function.zip` | `src/`, `bin/runner`, each problem's `problem.json` and tests | ~4 MB |
+
+Both are built on AWS's own Lambda image, so they match the system they run
+on. The web app calls the function through Lambda's Invoke API, signed with the
+keys of an IAM user that may only invoke this function. The function sits in
+a VPC subnet with a security group that allows no outbound traffic, so
+submissions can't reach the internet.
+
+Setting it up by hand in the AWS console, step by step: [`aws/SETUP.md`](aws/SETUP.md).
+Check the deployed function with `node judge/test/verdicts.mjs --aws codedrills-judge`.
 
 ## Adding a problem's tests (for now)
 

@@ -16,3 +16,4 @@ web/public/vendor/
 
 # Generated test data (built by each problem's make-tests.mjs)
 judge/problems/*/tests/
+judge/dist/
