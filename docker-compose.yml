@@ -1,0 +1,23 @@
+# The local development database: `npm run db:up` (in web/) starts it,
+# `npm run db:down` stops it. The app finds it at its default address,
+# mongodb://127.0.0.1:27018 (27017 is left free for CodeReflections).
+# Data lives in the named volume; `docker compose down -v` deletes it.
+services:
+  mongo:
+    image: mongo:7
+    container_name: codedrills-mongo
+    restart: unless-stopped
+    ports:
+      # This machine only: the database has no password
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mongo-data:
+    name: codedrills-mongo
