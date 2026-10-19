@@ -99,7 +99,7 @@ stack = memory limit. Compile flags: `g++ -std=gnu++17 -O2 -pipe -static
 
 ## 4. Problem pipeline (GitHub Actions, `codedrills-problems` repo)
 
-Triggered by a push touching `problems/<slug>/**` (or manually from the Actions
+Triggered by a push touching `problems/<code>-<name>/**` (or manually from the Actions
 tab). Runs in the pinned toolchain image, which uses the same g++ as the judge.
 
 1. Compile solution, brute, gen, validator, checker (testlib.h).
@@ -116,26 +116,44 @@ tab). Runs in the pinned toolchain image, which uses the same g++ as the judge.
 
 Publishing is refused unless every step passed for the current `sourceHash`.
 
+## 4b. Problem codes and sources
+
+- Every problem has one permanent code: `CD` + a running number, `CD0001`,
+  `CD0002`, … Assigned once (stored in the problem's `problem.json`, folder
+  `problems/CD0017-even-prefixes/`), never changed or reused; a removed problem
+  leaves a gap. The build checks codes are unique.
+- Where the idea came from is metadata, not part of the code:
+  `sourcePlatform` (Codeforces, LeetCode, AtCoder, GeeksforGeeks or Original)
+  and, when known, `source: { platform, id, url }` for the original problem.
+  The problem page shows "Inspired by Codeforces 1904A ↗"; the problemset has a
+  Source column and filter; searching the original's ID finds the drill.
+- Statements and tests are always written for CodeDrills: the original is
+  credited as inspiration, never copied.
+- URLs: `/problemset/problem/CD0017`; statement title "CD0017. Name". Searching
+  `cd17` or `CD0017` goes straight to the problem.
+
 ## 5. Data model (MongoDB)
 
 ```js
-problems    { _id: slug, slug, code, order, title, titleWords, statementHtml,
+problems    { _id: code /* "CD0017" */, number, title, titleWords, statementHtml,
               samples: [{input, output}], timeLimitMs, memoryLimitMb, tags,
               difficulty, checker, published, buildId,
+              sourcePlatform /* codeforces|leetcode|atcoder|geeksforgeeks|original */,
+              source: { platform, id, url } | null,   // the original, if any
               stats: { submissions, accepted },   // kept up to date by the judge
               createdAt, updatedAt }
-builds      { _id, slug, commit, sourceHash, status: requested|running|passed|failed,
+builds      { _id, code, commit, sourceHash, status: requested|running|passed|failed,
               steps: [{name, ok, ms, log}], package: {sha256, r2Key, formatVersion, testCount},
               localMaxMs, judgeMaxMs, logUrl, createdAt }
-submissions { _id, id, problemSlug, problemCode, problemTitle, language /* id, e.g. "cpp17" */, code, codeBytes,
+submissions { _id, id, problemCode, problemTitle, language /* id, e.g. "cpp17" */, code, codeBytes,
               status: queued|compiling|running|done, verdict: AC|WA|TLE|MLE|RE|CE|IE|null,
               failedTest, currentTest, timeMs, memoryKb, compileOutput,
               tests: [{n, verdict, timeMs, memoryKb, checkerMsg}],
               buildId, kind: user|calibration, lease: {workerId, until},
               attempts, createdAt, finishedAt }
 // Indexes and why: web/src/db/database.js (INDEXES); `npm run db:explain`.
-// The problemset is paged with skip + limit over the {published, order,
-// difficulty} / {published, tags, order, difficulty} indexes (no in-memory
+// The problemset is paged with skip + limit over the {published, number,
+// difficulty} / {published, tags|sourcePlatform, number, difficulty} indexes (no in-memory
 // sort; skipped entries are index keys only). "Solved" comes from
 // problems.stats, so listing needs no join with submissions; submissions copy
 // their problem's code and title for the same reason.
@@ -148,22 +166,22 @@ judgeStatus   { workerId, lastHeartbeat, version }
 
 ```
 POST /api/auth/login | POST /api/auth/logout | GET /api/auth/me
-GET  /api/problems?q=&tag=&min=&max=&page=&perPage=   one page + total + tags
+GET  /api/problems?q=&tag=&source=&min=&max=&page=&perPage=   one page + total + tags
 GET  /api/problems/options | /api/problems/progress
-GET  /api/problems/:slug
+GET  /api/problems/:code
 POST /api/submissions            {problemSlug, language, code}
 GET  /api/submissions?problem=&page=
 GET  /api/submissions/:id        polled every 1 s until done
 GET  /api/judge/status
 GET  /api/admin/problems
-PUT  /api/admin/problems/:slug   tags, difficulty, code (not statement/tests)
-POST /api/admin/problems/:slug/publish | /unpublish
+PUT  /api/admin/problems/:code   tags, difficulty, code (not statement/tests)
+POST /api/admin/problems/:code/publish | /unpublish
 POST /api/admin/submissions/:id/rejudge
-POST /api/admin/problems/:slug/rejudge
-GET  /api/admin/builds?slug=
+POST /api/admin/problems/:code/rejudge
+GET  /api/admin/builds?code=
 ```
 
-Pages (static SPA): `/`, `/problemset`, `/problemset/problem/:slug`, `/submit`,
+Pages (static SPA): `/`, `/problemset`, `/problemset/problem/:code`, `/submit`,
 `/status`, `/submission/:id`, `/admin`.
 
 ## 7. Hosting and cost
@@ -210,8 +228,8 @@ Pages (static SPA): `/`, `/problemset`, `/problemset/problem/:slug`, `/submit`,
 
 ```
 https://codereflections.akshatdhiman.in/new?platform=codedrills
-  &title=<urlencoded>&url=<urlencoded problem URL>
-  &difficulty=1600&tags=greedy,dp&externalId=<slug>
+  &title=<urlencoded>&url=<urlencoded problem URL, e.g. …/problemset/problem/CD0017>
+  &difficulty=1600&tags=greedy,dp&externalId=<code, e.g. CD0017>
 ```
 
 CodeReflections needs a `platform` field to accept this; CodeDrills only

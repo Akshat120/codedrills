@@ -140,6 +140,23 @@ function buildPagination(current, total, urlFor) {
     </nav>`;
 }
 
+// "cd17", "CD0017", "cd-17" → "CD0017"; null for anything else (same rule as
+// normalizeCode in src/data/platforms.js)
+function normalizeProblemCode(text) {
+  const match = /^\s*cd\s*-?\s*(\d{1,6})\s*$/i.exec(String(text || ""));
+  return match ? `CD${match[1].padStart(4, "0")}` : null;
+}
+
+// "Codeforces 1904A ↗" (linked when the original's URL is known), or the
+// platform name alone; "Original" for problems not based on another site
+function sourceHtml(p) {
+  if (!p.source?.id) return p.sourcePlatform === "original" ? `<span class="muted">Original</span>` : esc(p.sourceName);
+  const label = `${esc(p.sourceName)} ${esc(p.source.id)}`;
+  return p.source.url
+    ? `<a href="${esc(p.source.url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`
+    : label;
+}
+
 function renderMath(el) {
   window.renderMathInElement?.(el, {
     delimiters: [
@@ -165,7 +182,7 @@ function submissionsTable(list, { compact = false } = {}) {
         <td class="col-id"><a href="/submission/${esc(s.id)}" data-link>${esc(s.id)}</a></td>
         <td class="col-when hide-narrow">${formatWhen(s.createdAt)}</td>
         <td class="hide-narrow"><span class="user-handle">akshat</span></td>
-        <td class="col-left"><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
+        <td class="col-left"><a href="/problemset/problem/${esc(s.problemCode)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
         <td class="hide-narrow">${esc(s.languageName)}</td>
         <td>${verdictHtml(s)}</td>
         <td class="col-mono">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
@@ -241,16 +258,16 @@ const PS_LOADING_DELAY_MS = 120; // fast responses swap without a flash
 
 function problemsetShell(params) {
   main.innerHTML =
-    intro("Problemset", "Original problems. Green rows are solved, red rows were attempted.") +
+    intro("Problemset", "Problems written for CodeDrills, some inspired by Codeforces, LeetCode, AtCoder and GeeksforGeeks. Green rows are solved, red rows were attempted.") +
     `<section class="roundbox" id="problemset-box">
       <div class="caption">Problems <span id="ps-total"></span>
         <span class="fetching" id="ps-fetching" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span>Fetching problems…</span>
       </div>
       <div class="roundbox-body flush">
         <div class="table-wrap"><table class="datatable problemset-table">
-          <colgroup><col class="w-id"><col><col class="w-difficulty"><col class="w-solved"></colgroup>
-          <thead><tr><th>#</th><th class="col-left">Name</th><th><span class="label-long">Difficulty</span><span class="label-short" title="Difficulty">Diff.</span></th><th><span class="label-long">Solved</span><span class="label-short" title="Solved">AC</span></th></tr></thead>
-          <tbody id="ps-rows"><tr class="loading-row"><td colspan="4"><span class="spinner" aria-hidden="true"></span>Fetching problems…</td></tr></tbody>
+          <colgroup><col class="w-id"><col><col class="w-source"><col class="w-difficulty"><col class="w-solved"></colgroup>
+          <thead><tr><th>#</th><th class="col-left">Name</th><th class="col-source">Source</th><th><span class="label-long">Difficulty</span><span class="label-short" title="Difficulty">Diff.</span></th><th><span class="label-long">Solved</span><span class="label-short" title="Solved">AC</span></th></tr></thead>
+          <tbody id="ps-rows"><tr class="loading-row"><td colspan="5"><span class="spinner" aria-hidden="true"></span>Fetching problems…</td></tr></tbody>
         </table></div>
         <div id="ps-pager"></div>
       </div>
@@ -260,11 +277,15 @@ function problemsetShell(params) {
     <form class="cf-filter-form" id="filter-form">
       <div>
         <label class="cf-filter-label" for="filter-q">Search problem:</label>
-        <input type="text" id="filter-q" name="q" class="cf-input" placeholder="Name or # (e.g. 1A)" autocomplete="off">
+        <input type="text" id="filter-q" name="q" class="cf-input" placeholder="Name, CD0017 or source ID" autocomplete="off">
       </div>
       <div>
         <label class="cf-filter-label" for="filter-tag">Tag:</label>
         <select id="filter-tag" name="tag" class="cf-select"><option value="">All tags</option></select>
+      </div>
+      <div>
+        <label class="cf-filter-label" for="filter-source">Source:</label>
+        <select id="filter-source" name="source" class="cf-select"><option value="">All sources</option></select>
       </div>
       <div>
         <label class="cf-filter-label">Difficulty:</label>
@@ -318,6 +339,12 @@ function syncFilterForm(params, data) {
     tagSelect.innerHTML = `<option value="">All tags (${data.tags.length})</option>` +
       data.tags.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
   }
+  const sourceSelect = form.elements.source;
+  if (data && sourceSelect.options.length !== data.platforms.length + 1) {
+    sourceSelect.innerHTML = `<option value="">All sources</option>` +
+      data.platforms.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  }
+  sourceSelect.value = params.get("source") || "";
   form.elements.q.value = params.get("q") || "";
   tagSelect.value = params.get("tag") || "";
   form.elements.min.value = params.get("min") || "";
@@ -326,16 +353,17 @@ function syncFilterForm(params, data) {
 }
 
 function problemRows(problems) {
-  if (!problems.length) return `<tr><td colspan="4" class="muted">No problems match.</td></tr>`;
+  if (!problems.length) return `<tr><td colspan="5" class="muted">No problems match.</td></tr>`;
   return problems.map(p => `
     <tr class="${p.status === "accepted" ? "accepted-problem" : p.status === "attempted" ? "rejected-problem" : ""}">
-      <td class="col-id"><a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.code)}</a></td>
+      <td class="col-id"><a href="/problemset/problem/${esc(p.code)}" data-link>${esc(p.code)}</a></td>
       <td class="col-left">
         <div class="problem-name">
-          <a href="/problemset/problem/${esc(p.slug)}" data-link>${esc(p.title)}</a>
+          <a href="/problemset/problem/${esc(p.code)}" data-link>${esc(p.title)}</a>
           <div class="problem-tags">${p.tags.map(t => `<a href="/problemset?tag=${encodeURIComponent(t)}" data-link>${esc(t)}</a>`).join(", ")}</div>
         </div>
       </td>
+      <td class="col-source">${sourceHtml(p)}</td>
       <td><span class="${ratingClass(p.difficulty)}">${esc(p.difficulty)}</span></td>
       <td>${p.acceptedCount ? `<span title="My accepted submissions">✓ x${esc(p.acceptedCount)}</span>` : ""}</td>
     </tr>`).join("");
@@ -381,14 +409,13 @@ async function problemsetPage() {
   syncFilterForm(params, data);
 }
 
-async function problemPage(slug) {
+async function problemPage(code) {
   const [p, subs, langs] = await Promise.all([
-    api(`/api/problems/${encodeURIComponent(slug)}`),
-    api(`/api/submissions?problem=${encodeURIComponent(slug)}`),
+    api(`/api/problems/${encodeURIComponent(code)}`),
+    api(`/api/submissions?problem=${encodeURIComponent(code)}`),
     getLanguages()
   ]);
   setTitle(`${p.code} ${p.title}`);
-  const letter = p.code.replace(/^\d+/, "");
 
   const samples = p.samples.map((s, i) => `
     <div class="sample-tests">
@@ -416,7 +443,8 @@ async function problemPage(slug) {
   main.innerHTML = `<section class="roundbox">
     <div class="problem-statement">
       <div class="header">
-        <div class="title">${esc(letter)}. ${esc(p.title)}</div>
+        <div class="title">${esc(p.code)}. ${esc(p.title)}</div>
+        ${p.source?.id ? `<div class="property inspired-by">Inspired by ${sourceHtml(p)}</div>` : ""}
         <div class="property"><span class="property-title">time limit per test</span> ${p.timeLimitMs / 1000} second${p.timeLimitMs === 1000 ? "" : "s"}</div>
         <div class="property"><span class="property-title">memory limit per test</span> ${esc(p.memoryLimitMb)} megabytes</div>
         <div class="property"><span class="property-title">input</span> standard input</div>
@@ -461,7 +489,7 @@ async function problemPage(slug) {
     const msg = document.getElementById("quick-msg");
     const file = e.target.file.files[0];
     if (!file) return showMessage(msg, "Choose a file first.", true);
-    await submitCode({ problemSlug: slug, language: e.target.language.value, code: await file.text() }, msg);
+    await submitCode({ problemCode: p.code, language: e.target.language.value, code: await file.text() }, msg);
   });
 }
 
@@ -482,16 +510,18 @@ async function submitCode(payload, msgEl) {
 
 async function submitPage() {
   setTitle("Submit");
-  const [{ problems }, langs] = await Promise.all([api("/api/problems/options"), getLanguages()]);
-  const preselect = new URLSearchParams(location.search).get("problem");
+  const langs = await getLanguages();
+  const preselect = new URLSearchParams(location.search).get("problem") || "";
   main.innerHTML =
     intro("Submit solution", `Paste the code or choose a file. Languages: ${esc(langs.map(l => l.name).join(", "))}.`) +
     box("Submit", `
       <form id="submit-form" class="submit-grid">
         <label for="sub-problem">Problem:</label>
-        <select id="sub-problem" name="problemSlug" class="cf-select">
-          ${problems.map(p => `<option value="${esc(p.slug)}"${p.slug === preselect ? " selected" : ""}>${esc(p.code)} - ${esc(p.title)}</option>`).join("")}
-        </select>
+        <div class="problem-code-field">
+          <input type="text" id="sub-problem" name="problemCode" class="cf-input" placeholder="e.g. CD0017"
+                 value="${esc(preselect)}" autocomplete="off" spellcheck="false" maxlength="12" aria-describedby="sub-problem-info">
+          <span id="sub-problem-info" class="problem-code-info" aria-live="polite"></span>
+        </div>
         <label for="sub-lang">Language:</label>
         <select id="sub-lang" name="language" class="cf-select">${languageOptions(langs)}</select>
         <label class="full" for="sub-code" style="text-align:left">Source code:</label>
@@ -501,6 +531,42 @@ async function submitPage() {
         <div class="full action-buttons"><button class="btn" type="submit">Submit</button></div>
         <div class="full" id="submit-msg"></div>
       </form>`);
+
+  // The problem is typed as its code (cd17, CD0017) and looked up as you type
+  const problemInput = document.getElementById("sub-problem");
+  const problemInfo = document.getElementById("sub-problem-info");
+  let lookupTimer = null;
+  let lookupId = 0;
+  let resolved = null; // { code, title } of the problem the field names, or null
+
+  async function lookUpProblem() {
+    const requestId = ++lookupId;
+    resolved = null;
+    const text = problemInput.value.trim();
+    const code = normalizeProblemCode(text);
+    if (!text) return void (problemInfo.innerHTML = "");
+    if (!code) return showProblemInfo("Enter a problem code like CD0017.", true);
+    showProblemInfo("Looking up…", false);
+    try {
+      const p = await api(`/api/problems/${code}`);
+      if (requestId !== lookupId) return;
+      resolved = { code: p.code, title: p.title };
+      problemInfo.innerHTML = `<a href="/problemset/problem/${esc(p.code)}" data-link>${esc(p.code)}. ${esc(p.title)}</a>`;
+    } catch (_) {
+      if (requestId === lookupId) showProblemInfo(`No problem ${code}.`, true);
+    }
+  }
+
+  function showProblemInfo(text, isError) {
+    problemInfo.innerHTML = `<span class="${isError ? "error-text" : "muted"}"></span>`;
+    problemInfo.firstChild.textContent = text;
+  }
+
+  problemInput.addEventListener("input", () => {
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(lookUpProblem, 250);
+  });
+  if (preselect) lookUpProblem();
 
   const textarea = document.getElementById("sub-code");
   textarea.addEventListener("keydown", e => {
@@ -521,8 +587,14 @@ async function submitPage() {
     e.preventDefault();
     const form = e.target;
     const msg = document.getElementById("submit-msg");
+    clearTimeout(lookupTimer);
+    if (!resolved || resolved.code !== normalizeProblemCode(problemInput.value)) await lookUpProblem();
+    if (!resolved) {
+      problemInput.focus();
+      return showMessage(msg, problemInput.value.trim() ? "Enter the code of an existing problem, like CD0017." : "Enter the problem code.", true);
+    }
     if (!textarea.value.trim()) return showMessage(msg, "The source code is empty.", true);
-    await submitCode({ problemSlug: form.problemSlug.value, language: form.language.value, code: textarea.value }, msg);
+    await submitCode({ problemCode: resolved.code, language: form.language.value, code: textarea.value }, msg);
   });
 
   sidebar.innerHTML = await payAttentionBox();
@@ -546,7 +618,7 @@ async function submissionPage(id) {
     <thead><tr><th>#</th><th>Problem</th><th class="hide-narrow">Lang</th><th>Verdict</th><th>Time</th><th class="hide-narrow">Memory</th><th class="hide-narrow">Sent</th></tr></thead>
     <tbody><tr>
       <td>${esc(s.id)}</td>
-      <td><a href="/problemset/problem/${esc(s.problemSlug)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
+      <td><a href="/problemset/problem/${esc(s.problemCode)}" data-link>${esc(s.problemCode)} - ${esc(s.problemTitle)}</a></td>
       <td class="hide-narrow">${esc(s.languageName)}</td>
       <td>${verdictHtml(s)}</td>
       <td class="col-mono">${s.status === "done" ? `${esc(s.timeMs)} ms` : ""}</td>
@@ -579,7 +651,7 @@ async function adminPage() {
   setTitle("Admin");
   main.innerHTML =
     intro("Admin", "Problem management, publishing and rejudging arrive in milestone 4.") +
-    box("Coming later", `<p style="margin:0">Nothing to manage yet: problems are hard-coded in this build.</p>`);
+    box("Coming later", `<p style="margin:0">Nothing to manage yet: problems come from the sample data (<code>npm run seed</code>).</p>`);
   sidebar.innerHTML = await payAttentionBox();
 }
 
@@ -654,16 +726,15 @@ document.addEventListener("keydown", e => {
   }
 });
 
-// Header search: jump to a problem by its code (e.g. 1A), else search by name
+// Header search: jump to a problem by its code (CD17, cd0017), else search
 document.getElementById("nav-search").addEventListener("submit", async e => {
   e.preventDefault();
   const input = document.getElementById("nav-search-input");
   const q = input.value.trim();
   if (!q) return;
-  const { problems } = await api(`/api/problems?q=${encodeURIComponent(q)}`);
-  const exact = problems.find(p => p.code.toLowerCase() === q.toLowerCase());
+  const code = normalizeProblemCode(q);
   input.value = "";
-  navigate(exact ? `/problemset/problem/${exact.slug}` : `/problemset?q=${encodeURIComponent(q)}`);
+  navigate(code ? `/problemset/problem/${code}` : `/problemset?q=${encodeURIComponent(q)}`);
 });
 
 // ---------- start ----------

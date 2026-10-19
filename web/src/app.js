@@ -23,7 +23,7 @@ const publicDir = path.join(__dirname, "../public");
 const clientRoutes = [
   "/",
   "/problemset",
-  "/problemset/problem/:slug",
+  "/problemset/problem/:code",
   "/submit",
   "/status",
   "/submission/:id",

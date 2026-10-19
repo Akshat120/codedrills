@@ -15,19 +15,20 @@ function stages(plan) {
   return names.join(" ← ");
 }
 
-const problemList = { _id: 0, slug: 1, code: 1, title: 1, difficulty: 1, tags: 1, stats: 1 };
-const listOf = filter => ({ filter, projection: problemList, sort: { order: 1 } });
+const problemList = { _id: 1, title: 1, difficulty: 1, tags: 1, sourcePlatform: 1, source: 1, stats: 1 };
+const listOf = filter => ({ filter, projection: problemList, sort: { number: 1 } });
 
 const queries = [
   ["problemset page 1", "problems", { ...listOf({ published: true }), limit: 25 }],
   ["problemset page 5", "problems", { ...listOf({ published: true }), skip: 100, limit: 25 }],
   ["tag filter", "problems", { ...listOf({ published: true, tags: "greedy" }), limit: 25 }],
+  ["source filter", "problems", { ...listOf({ published: true, sourcePlatform: "leetcode" }), limit: 25 }],
   ["difficulty range", "problems", { ...listOf({ published: true, difficulty: { $gte: 1400, $lte: 1900 } }), limit: 25 }],
   ["tag + difficulty", "problems", { ...listOf({ published: true, tags: "dp", difficulty: { $gte: 1400 } }), limit: 25 }],
-  ["code search 12C", "problems", { ...listOf({ published: true, code: "12C" }), limit: 25 }],
-  ["title search \"gold\"", "problems", { ...listOf({ published: true, titleWords: { $all: [/^gold/] } }), limit: 25 }],
+  ["code CD0012", "problems", { ...listOf({ published: true, _id: "CD0012" }), limit: 25 }],
+  ["source id or title \"gold\"", "problems", { ...listOf({ published: true, $or: [{ "source.id": "GOLD" }, { titleWords: { $all: [/^gold/] } }] }), limit: 25 }],
   ["status page", "submissions", { filter: {}, projection: { code: 0, tests: 0 }, sort: { createdAt: -1 }, limit: 50 }],
-  ["problem's last submissions", "submissions", { filter: { problemSlug: "even-prefixes" }, projection: { code: 0, tests: 0 }, sort: { createdAt: -1 }, limit: 10 }]
+  ["problem's last submissions", "submissions", { filter: { problemCode: "CD0001" }, projection: { code: 0, tests: 0 }, sort: { createdAt: -1 }, limit: 10 }]
 ];
 
 async function main() {

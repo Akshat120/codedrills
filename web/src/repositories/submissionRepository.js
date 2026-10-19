@@ -11,9 +11,9 @@ const MAX_LIST = 100;
 
 const present = s => ({ ...s, id: String(s.id), languageName: languageName(s.language) });
 
-export async function listSubmissions({ problemSlug, limit = 50 } = {}) {
+export async function listSubmissions({ problemCode, limit = 50 } = {}) {
   await dbReady();
-  const filter = problemSlug ? { problemSlug: String(problemSlug) } : {};
+  const filter = problemCode ? { problemCode } : {};
   const rows = await collections.submissions
     .find(filter, { projection: LIST_PROJECTION })
     .sort({ createdAt: -1 })

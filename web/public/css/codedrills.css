@@ -455,6 +455,11 @@ html.auth-pending body { visibility: hidden; }
 .submit-grid > label { font-weight: bold; font-size: 13px; text-align: right; }
 .submit-grid .cf-select { width: auto; min-width: 260px; max-width: 100%; height: 26px; font-size: 13px; }
 .submit-grid .full { grid-column: 1 / -1; }
+.problem-code-field { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.problem-code-field .cf-input { width: 140px; height: 26px; font-size: 13px; text-transform: uppercase; }
+.problem-code-field .cf-input::placeholder { text-transform: none; }
+.problem-code-info { font-size: 13px; min-width: 0; }
+.error-text { color: var(--error); }
 
 .code-editor {
   width: 100%;
@@ -519,15 +524,23 @@ html.auth-pending body { visibility: hidden; }
 /* Problemset: fixed column widths, so they don't change from page to page
    with the length of the titles and tags on it. Long names wrap instead. */
 .problemset-table { table-layout: fixed; }
-.problemset-table .w-id { width: 70px; }
+.problemset-table .w-id { width: 80px; }
+.problemset-table .w-source { width: 150px; }
 .problemset-table .w-difficulty { width: 100px; }
 .problemset-table .w-solved { width: 80px; }
 .problemset-table td { overflow-wrap: anywhere; }
+.problemset-table .col-source { font-size: 12px; }
+.problemset-table .col-id { overflow-wrap: normal; white-space: nowrap; }
+.inspired-by { margin-top: 6px; }
 .label-short { display: none; }
 @media (max-width: 600px) {
   .label-long { display: none; }
   .label-short { display: inline; }
-  .problemset-table .w-id { width: 48px; }
+  .problemset-table .w-id { width: 72px; }
+  /* Source column collapses (its cells stay, so the other columns keep
+     their places) */
+  .problemset-table .w-source { width: 0; }
+  .problemset-table .col-source { padding: 0; border: 0; font-size: 0; overflow: hidden; }
   .problemset-table .w-difficulty { width: 72px; }
   .problemset-table .w-solved { width: 58px; }
   .problemset-table td, .problemset-table th { padding-left: 6px; padding-right: 6px; }

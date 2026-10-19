@@ -1,7 +1,6 @@
 import { Router } from "express";
 import {
   getProblem,
-  listProblemOptions,
   listProblems,
   parseListQuery,
   progressSummary
@@ -14,16 +13,12 @@ problemRoutes.get("/", async (req, res) => {
   res.json(await listProblems(parseListQuery(req.query)));
 });
 
-problemRoutes.get("/options", async (_req, res) => {
-  res.json({ problems: await listProblemOptions() });
-});
-
 problemRoutes.get("/progress", async (_req, res) => {
   res.json(await progressSummary());
 });
 
-problemRoutes.get("/:slug", async (req, res) => {
-  const problem = await getProblem(req.params.slug);
+problemRoutes.get("/:code", async (req, res) => {
+  const problem = await getProblem(req.params.code);
   if (!problem) return res.status(404).json({ error: "Problem not found." });
   res.json(problem);
 });
