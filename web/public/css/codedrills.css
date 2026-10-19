@@ -167,7 +167,7 @@ html.auth-pending body { visibility: hidden; }
 .brand { display: inline-flex; align-items: flex-start; gap: 11px; }
 .brand:hover { text-decoration: none; }
 .brand-logo { display: block; width: 40px; height: 40px; flex: none; }
-.brand-titles { display: flex; flex-direction: column; align-items: flex-end; }
+.brand-titles { display: flex; flex-direction: column; align-items: flex-start; }
 
 /* Wordmark: wide bold small caps with a full-height first letter */
 .brand-text {
