@@ -515,6 +515,23 @@ html.auth-pending body { visibility: hidden; }
 
 .problem-name { display: flex; flex-direction: column; gap: 2px; }
 .problem-tags { text-align: right; font-size: 11px; }
+
+/* Problemset: fixed column widths, so they don't change from page to page
+   with the length of the titles and tags on it. Long names wrap instead. */
+.problemset-table { table-layout: fixed; }
+.problemset-table .w-id { width: 70px; }
+.problemset-table .w-difficulty { width: 100px; }
+.problemset-table .w-solved { width: 80px; }
+.problemset-table td { overflow-wrap: anywhere; }
+.label-short { display: none; }
+@media (max-width: 600px) {
+  .label-long { display: none; }
+  .label-short { display: inline; }
+  .problemset-table .w-id { width: 48px; }
+  .problemset-table .w-difficulty { width: 72px; }
+  .problemset-table .w-solved { width: 58px; }
+  .problemset-table td, .problemset-table th { padding-left: 6px; padding-right: 6px; }
+}
 .content-column .problem-tags a { color: var(--muted); text-decoration: none; }
 .content-column .problem-tags a:hover { text-decoration: underline; }
 

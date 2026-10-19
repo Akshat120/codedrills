@@ -266,8 +266,9 @@ async function problemsetPage() {
   main.innerHTML =
     intro("Problemset", "Original problems. Green rows are solved, red rows were attempted.") +
     box(`Problems (${data.total})`, `
-      <div class="table-wrap"><table class="datatable">
-        <thead><tr><th>#</th><th class="col-left">Name</th><th>Difficulty</th><th>Solved</th></tr></thead>
+      <div class="table-wrap"><table class="datatable problemset-table">
+        <colgroup><col class="w-id"><col><col class="w-difficulty"><col class="w-solved"></colgroup>
+        <thead><tr><th>#</th><th class="col-left">Name</th><th><span class="label-long">Difficulty</span><span class="label-short" title="Difficulty">Diff.</span></th><th><span class="label-long">Solved</span><span class="label-short" title="Solved">AC</span></th></tr></thead>
         <tbody>${rows || `<tr><td colspan="4" class="muted">No problems match.</td></tr>`}</tbody>
       </table></div>
       ${buildPagination(data.page, data.totalPages, pageUrl)}
