@@ -825,7 +825,8 @@ html.auth-pending body { visibility: hidden; }
 [data-theme="dark"] .file-picker-button { background: #4a4d52; color: #e8e8e8; }
 [data-theme="dark"] .file-picker-button:hover { background: #5a5e64; }
 .quick-submit-btn {
-  justify-self: start; /* lines up with the language menu, like Codeforces */
+  grid-column: 1 / -1; /* its own row, centred in the box */
+  justify-self: center;
   min-width: 96px;
   height: 28px;
   padding: 0 18px;

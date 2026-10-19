@@ -474,7 +474,6 @@ async function problemPage(code) {
           <label for="quick-file" class="file-picker-button">Choose file</label>
           <span class="file-picker-name" id="quick-file-name">No file chosen</span>
         </div>
-        <span></span>
         <button class="quick-submit-btn" type="submit">Submit</button>
         <div id="quick-msg" class="quick-submit-msg"></div>
       </form>`) +
