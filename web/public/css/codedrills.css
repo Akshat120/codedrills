@@ -785,7 +785,7 @@ html.auth-pending body { visibility: hidden; }
 }
 
 /* Problem page "Submit?" box: labels on the left, controls on the right,
-   a wide grey Submit button under the controls (Codeforces' quick submit) */
+   a grey Submit button under the controls (Codeforces' quick submit) */
 .quick-submit {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -825,7 +825,7 @@ html.auth-pending body { visibility: hidden; }
 [data-theme="dark"] .file-picker-button { background: #4a4d52; color: #e8e8e8; }
 [data-theme="dark"] .file-picker-button:hover { background: #5a5e64; }
 .quick-submit-btn {
-  justify-self: center;
+  justify-self: start; /* lines up with the language menu, like Codeforces */
   min-width: 96px;
   height: 28px;
   padding: 0 18px;
